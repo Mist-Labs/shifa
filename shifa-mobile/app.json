@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "SHIFA",
+    "slug": "shifa-health",
+    "version": "1.0.0",
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTabletMode": true,
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "SHIFA Guard needs microphone access for threat detection",
+        "NSCameraUsageDescription": "SHIFA needs camera for photo analysis and threat detection",
+        "NSLocationWhenInUseUsageDescription": "SHIFA needs location for case tracking and outbreak mapping"
+      }
+    },
+    "android": {
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION"
+      ],
+      "minSdkVersion": 21
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "SHIFA needs camera access"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "SHIFA needs location"
+        }
+      ]
+    ]
+  }
+}

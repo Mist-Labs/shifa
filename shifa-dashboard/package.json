@@ -1,0 +1,32 @@
+{
+  "name": "shifa-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "date-fns": "^2.30.0",
+    "lucide-react": "^1.14.0",
+    "mapbox-gl": "^2.15.0",
+    "next": "^16.2.4",
+    "postcss": "^8.5.14",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "zustand": "^4.4.0"
+  },
+  "devDependencies": {
+    "@types/mapbox-gl": "^3.4.1",
+    "@types/node": "^18.0.0",
+    "@types/react": "^19.2.14",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "^16.2.4",
+    "typescript": "^5.0.0"
+  },
+  "overrides": {
+    "postcss": "^8.5.14"
+  }
+}
