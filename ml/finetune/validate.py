@@ -58,7 +58,7 @@ def main() -> None:
     from common import country_prompt
 
     model_dir = str(resolve_path(env("SHIFA_MODEL_DIR", "models/shifa-gemma4-e4b-finetuned")))
-    test_file = env("SHIFA_TEST_CASES", "data/test_cases/imci_test_60.jsonl")
+    test_file = env("SHIFA_TEST_CASES") or env("SHIFA_TEST_FILE", "data/test_cases/imci_test_60.jsonl")
     report_path = env("SHIFA_VALIDATION_REPORT", "reports/validation_metrics.json")
     max_seq_length = int(env("SHIFA_MAX_SEQ_LENGTH", "8192"))
 

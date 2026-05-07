@@ -15,13 +15,10 @@ source .venv/bin/activate
 pip install -U pip
 pip install -r requirements-gpu.txt
 
-python finetune/generate_synthetic.py
-python finetune/prepare_data.py
-python finetune/finetune_unsloth.py
-python finetune/validate.py
-python finetune/convert_litert.py
-python scripts/upload_artifacts.py
+bash scripts/run_remote_training.sh
 ```
+
+The remote script downloads the prepared train/test artifacts from `R2_PUBLIC_BASE_URL`, fine-tunes, validates, converts, then uploads the model/report back to R2.
 
 ## Local Data Prep On Mac
 

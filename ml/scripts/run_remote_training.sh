@@ -8,8 +8,7 @@ if [ ! -f ".env" ]; then
   exit 1
 fi
 
-python finetune/generate_synthetic.py
-python finetune/prepare_data.py
+python scripts/download_artifacts.py
 python finetune/finetune_unsloth.py
 python finetune/validate.py
 python finetune/convert_litert.py
