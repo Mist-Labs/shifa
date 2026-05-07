@@ -76,6 +76,44 @@ test('case analysis validates input and applies urgent SAM referral', async () =
   await app.close();
 });
 
+test('Nigeria Hausa meningitis danger signs force urgent referral', async () => {
+  clearStore();
+  const app = await buildApp({
+    env: 'test',
+    host: '127.0.0.1',
+    port: 0,
+    corsOrigins: true,
+    jwtSecret: 'test_secret_test_secret_test_secret',
+    maxUploadBytes: 1024 * 1024,
+    clinicalAiModel: 'gemini-2.5-flash',
+    requireHmac: false,
+  });
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/api/cases/analyze',
+    payload: {
+      chwId: 'chw-ng',
+      country: 'nigeria',
+      language: 'ha',
+      symptomText: 'Patient has fever, neck stiffness, photophobia, and confusion',
+      patient: {
+        ageMonths: 96,
+        sex: 'M',
+        weightKg: 21,
+      },
+    },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.json().decision.decision, 'REFER_URGENT');
+  assert.equal(response.json().decision.referral.urgency, 'IMMEDIATE');
+  assert.match(response.json().decision.primaryDiagnosis, /Mening/i);
+  assert.match(response.json().decision.voiceResponse, /asibiti/i);
+
+  await app.close();
+});
+
 test('threat endpoint classifies combined threats without backend SMS dispatch', async () => {
   clearStore();
   const app = await buildApp({
@@ -170,6 +208,68 @@ test('sync computes outbreak alerts from clustered AWD cases', async () => {
   assert.equal(sync.json().success, true);
   assert.equal(sync.json().outbreakAlerts.length, 1);
   assert.equal(sync.json().outbreakAlerts[0].condition, 'Cholera');
+
+  await app.close();
+});
+
+test('sync computes Nigeria meningitis outbreak from two clustered cases', async () => {
+  clearStore();
+  const app = await buildApp({
+    env: 'test',
+    host: '127.0.0.1',
+    port: 0,
+    corsOrigins: true,
+    jwtSecret: 'test_secret_test_secret_test_secret',
+    maxUploadBytes: 1024 * 1024,
+    clinicalAiModel: 'gemini-2.5-flash',
+    requireHmac: false,
+  });
+
+  const now = Date.now();
+  const consultations = Array.from({ length: 2 }, (_, index) => ({
+    id: `meningitis-${index}`,
+    chwId: 'chw-ng-sync',
+    patient: {},
+    symptomText: 'fever with neck stiffness and photophobia',
+    decision: {
+      id: `decision-meningitis-${index}`,
+      decision: 'REFER_URGENT',
+      primaryDiagnosis: 'Suspected Meningococcal Meningitis',
+      differentialDiagnoses: ['Meningitis'],
+      confidence: 0.9,
+      dangerSigns: [{ sign: 'neck stiffness', triggersUrgent: true }],
+      reasoningTrace: 'test',
+      voiceResponse: 'test',
+    },
+    latitude: 11.85 + index * 0.001,
+    longitude: 13.16,
+    country: 'nigeria',
+    language: 'ha',
+    createdAt: new Date(now + index * 2 * 60 * 60 * 1000).toISOString(),
+    synced: false,
+  }));
+
+  const sync = await app.inject({
+    method: 'POST',
+    url: '/api/sync',
+    payload: {
+      chwProfile: {
+        id: 'chw-ng-sync',
+        country: 'nigeria',
+        language: 'ha',
+        alertRecipients: [],
+        guardEnabled: false,
+        createdAt: new Date(now).toISOString(),
+      },
+      consultations,
+      threatEvents: [],
+    },
+  });
+
+  assert.equal(sync.statusCode, 200);
+  assert.equal(sync.json().outbreakAlerts.length, 1);
+  assert.equal(sync.json().outbreakAlerts[0].condition, 'Meningitis');
+  assert.equal(sync.json().outbreakAlerts[0].country, 'nigeria');
 
   await app.close();
 });

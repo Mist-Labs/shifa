@@ -1,0 +1,94 @@
+{
+  "policy": "Public protocol sources only. No private patient data.",
+  "sources": {
+    "who_imci": {
+      "filenames": [
+        "imci-chart-booklet.pdf",
+        "who_imci_chart_booklet_2025.pdf"
+      ],
+      "selected_filename": "imci-chart-booklet.pdf",
+      "description": "WHO IMCI chart booklet / child health chart booklet.",
+      "urls": [],
+      "present": true,
+      "text_extract_path": "data/processed/extracted_sources/who_imci.txt",
+      "text_chars": 191471,
+      "extract_error": null
+    },
+    "sphere": {
+      "filenames": [
+        "Sphere-Handbook-2018-EN.pdf",
+        "sphere_handbook_2018_health.pdf"
+      ],
+      "selected_filename": "Sphere-Handbook-2018-EN.pdf",
+      "description": "Sphere Handbook 2018 health standards.",
+      "urls": [],
+      "present": true,
+      "text_extract_path": "data/processed/extracted_sources/sphere.txt",
+      "text_chars": 952906,
+      "extract_error": null
+    },
+    "msf": {
+      "filenames": [
+        "msf_clinical_guidelines_10th.pdf",
+        "web_sources/medicalguidelines-msf-org-en-viewport-cg-english-clinical-guidelines-16686604-html.pdf"
+      ],
+      "selected_filename": "medicalguidelines-msf-org-en-viewport-cg-english-clinical-guidelines-16686604-html.pdf",
+      "description": "MSF clinical guidelines. Latest public version is online-first.",
+      "urls": [
+        "https://medicalguidelines.msf.org/en/viewport/CG/english/clinical-guidelines-16686604.html"
+      ],
+      "present": true,
+      "text_extract_path": "data/processed/extracted_sources/msf.txt",
+      "text_chars": 858,
+      "extract_error": null
+    },
+    "drc_malaria": {
+      "filenames": [
+        "DR_CONGO_Malaria_Profile_PMI_FY_2024.pdf",
+        "drc_malaria_protocol.pdf"
+      ],
+      "selected_filename": "DR_CONGO_Malaria_Profile_PMI_FY_2024.pdf",
+      "description": "DRC malaria country profile / protocol evidence.",
+      "urls": [
+        "https://www.severemalaria.org/countries/democratic-republic-congo"
+      ],
+      "present": true,
+      "text_extract_path": "data/processed/extracted_sources/drc_malaria.txt",
+      "text_chars": 43423,
+      "extract_error": null
+    },
+    "cholera": {
+      "filenames": [
+        "Cholera Management Guidelines Revision (2).pdf",
+        "who_cholera_case_management.pdf",
+        "web_sources/medicalguidelines-msf-org-en-viewport-chol-english-management-of-a-cholera-epidemic-23444438-htm.pdf"
+      ],
+      "selected_filename": "Cholera Management Guidelines Revision (2).pdf",
+      "description": "Cholera case management / epidemic management guidance.",
+      "urls": [
+        "https://medicalguidelines.msf.org/en/viewport/CHOL/english/management-of-a-cholera-epidemic-23444438.html"
+      ],
+      "present": true,
+      "text_extract_path": "data/processed/extracted_sources/cholera.txt",
+      "text_chars": 155915,
+      "extract_error": null
+    },
+    "nigeria_north": {
+      "filenames": [
+        "nigeria_north_chw_protocol.pdf",
+        "web_sources/www-mnch2-com.pdf"
+      ],
+      "selected_filename": "www-mnch2-com.pdf",
+      "description": "Northern Nigeria CHW / MNCH programme material when supplied by programme partners.",
+      "urls": [
+        "https://www.mnch2.com/"
+      ],
+      "present": true,
+      "text_extract_path": "data/processed/extracted_sources/nigeria_north.txt",
+      "text_chars": 6578,
+      "extract_error": null
+    }
+  },
+  "training_rows": 1940,
+  "training_file": "data/processed/training_final.jsonl"
+}

@@ -7,6 +7,7 @@ import { Country, Language } from '../types/index.js';
 import { SUDAN_SYSTEM_PROMPT, SUDAN_DANGER_SIGNS, SUDAN_CONDITIONS } from './sudan.js';
 import { DRC_SYSTEM_PROMPT, DRC_DANGER_SIGNS, DRC_CONDITIONS } from './drc.js';
 import { SOMALIA_SYSTEM_PROMPT, SOMALIA_DANGER_SIGNS, SOMALIA_CONDITIONS } from './somalia.js';
+import { NIGERIA_SYSTEM_PROMPT, NIGERIA_DANGER_SIGNS, NIGERIA_CONDITIONS } from './nigeria.js';
 
 export function getSystemPrompt(country: Country, language: Language): string {
   switch (country) {
@@ -16,6 +17,8 @@ export function getSystemPrompt(country: Country, language: Language): string {
       return DRC_SYSTEM_PROMPT;
     case 'somalia':
       return SOMALIA_SYSTEM_PROMPT;
+    case 'nigeria':
+      return NIGERIA_SYSTEM_PROMPT;
     default:
       return 'You are SHIFA, a clinical decision support assistant.';
   }
@@ -29,6 +32,8 @@ export function getDangerSigns(country: Country) {
       return DRC_DANGER_SIGNS;
     case 'somalia':
       return SOMALIA_DANGER_SIGNS;
+    case 'nigeria':
+      return NIGERIA_DANGER_SIGNS;
     default:
       return [];
   }
@@ -42,6 +47,8 @@ export function getConditions(country: Country) {
       return DRC_CONDITIONS;
     case 'somalia':
       return SOMALIA_CONDITIONS;
+    case 'nigeria':
+      return NIGERIA_CONDITIONS;
     default:
       return {};
   }

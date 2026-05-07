@@ -1,26 +1,61 @@
 import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { ActivityIndicator, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import NetInfo from '@react-native-community/netinfo';
+import {
+  CheckCircle,
+  ChevronRight,
+  FileText,
+  Globe,
+  Settings,
+  Shield,
+  Stethoscope,
+} from 'lucide-react-native';
 import ClinicScreen from './screens/ClinicScreen';
 import GuardScreen from './screens/GuardScreen';
 import SettingsScreen from './screens/SettingsScreen';
+import CasesScreen from './screens/CasesScreen';
 import { initDatabase } from './db/sqlite';
 import { flushSMSQueue } from './services/alertSMS';
+import { colors } from './design/system';
+import { UIPreferencesProvider } from './services/uiPreferences';
+import { I18nProvider, saveLanguagePreference, toAppLanguage } from './services/i18n';
 
 const Tab = createBottomTabNavigator();
 
+type OnboardingStep = 'splash' | 'country' | 'language' | 'done';
+
+const countries = [
+  { label: 'Sudan', local: 'السودان', flag: '🇸🇩' },
+  { label: 'DR Congo', local: 'Kongo ya Boleki', flag: '🇨🇩' },
+  { label: 'Somalia', local: 'Soomaaliya', flag: '🇸🇴' },
+  { label: 'Nigeria', local: 'Arewa', flag: '🇳🇬' },
+];
+
+const languages = [
+  { label: 'Hausa', local: 'Hausa' },
+  { label: 'Lingala', local: 'Lingala' },
+  { label: 'Français', local: 'Français' },
+  { label: 'Kinyarwanda', local: 'Kinyarwanda' },
+  { label: 'Somali', local: 'Soomaali' },
+  { label: 'English', local: 'English' },
+  { label: 'العربية', local: 'Arabic' },
+];
+
 export default function App() {
   const [loading, setLoading] = useState(true);
+  const [onboardingStep, setOnboardingStep] = useState<OnboardingStep>('splash');
+  const [selectedLanguage, setSelectedLanguage] = useState('Lingala');
 
   useEffect(() => {
     const initialize = async () => {
       try {
         await initDatabase();
-        setLoading(false);
       } catch (error) {
         console.error('Failed to initialize database:', error);
+      } finally {
         setLoading(false);
       }
     };
@@ -38,79 +73,333 @@ export default function App() {
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#0284C7" />
-        <Text style={styles.loadingText}>Initializing SHIFA...</Text>
-      </View>
+      <SafeAreaView style={styles.loading}>
+        <ActivityIndicator size="large" color={colors.green} />
+        <Text style={styles.loadingText}>Initializing SHIFA</Text>
+      </SafeAreaView>
+    );
+  }
+
+  if (onboardingStep !== 'done') {
+    return (
+      <SafeAreaView style={[styles.onboarding, onboardingStep === 'splash' && styles.splash]}>
+        {onboardingStep === 'splash' && (
+          <View style={styles.splashInner}>
+            <View style={styles.logoBox}>
+              <Text style={styles.logoCross}>+</Text>
+            </View>
+            <Text style={styles.brand}>SHIFA</Text>
+            <Text style={styles.arabic}>شفاء</Text>
+            <Text style={styles.tagline}>For the people the world forgot to heal</Text>
+            <View style={styles.dots}>
+              <View style={[styles.dot, styles.dotActive]} />
+              <View style={styles.dot} />
+              <View style={styles.dot} />
+            </View>
+            <Text style={styles.splashStatus}>Offline • Private • Secure</Text>
+            <TouchableOpacity style={styles.hiddenAdvance} onPress={() => setOnboardingStep('country')} />
+          </View>
+        )}
+
+        {onboardingStep === 'country' && (
+          <View style={styles.setupPage}>
+            <Globe color={colors.green} size={42} />
+            <Text style={styles.setupTitle}>Select your country</Text>
+            <Text style={styles.setupSubtitle}>This helps SHIFA localize care</Text>
+            {countries.map((country) => (
+              <TouchableOpacity key={country.label} style={styles.optionRow} onPress={() => setOnboardingStep('language')}>
+                <Text style={styles.flag}>{country.flag}</Text>
+                <View style={styles.optionText}>
+                  <Text style={styles.optionLabel}>{country.label}</Text>
+                  <Text style={styles.optionLocal}>{country.local}</Text>
+                </View>
+                <ChevronRight color={colors.green} size={20} />
+              </TouchableOpacity>
+            ))}
+            <Text style={styles.setupFooter}>You can change this later</Text>
+          </View>
+        )}
+
+        {onboardingStep === 'language' && (
+          <View style={styles.setupPage}>
+            <Globe color={colors.green} size={42} />
+            <Text style={styles.setupTitle}>Choose language</Text>
+            <Text style={styles.setupSubtitle}>SHIFA will speak this language</Text>
+            {languages.map((language) => {
+              const active = selectedLanguage === language.label;
+              return (
+                <TouchableOpacity
+                  key={language.label}
+                  style={[styles.optionRow, active && styles.optionRowActive]}
+                  onPress={() => setSelectedLanguage(language.label)}
+                >
+                  <View style={[styles.radio, active && styles.radioActive]}>{active && <CheckCircle color={colors.white} size={14} />}</View>
+                  <View style={styles.optionText}>
+                    <Text style={styles.optionLabel}>{language.label}</Text>
+                    <Text style={styles.optionLocal}>{language.local}</Text>
+                  </View>
+                  {active && <CheckCircle color={colors.green} size={20} />}
+                </TouchableOpacity>
+              );
+            })}
+            <TouchableOpacity
+              style={styles.continueButton}
+              onPress={() => {
+                void saveLanguagePreference(toAppLanguage(languageCodeFromLabel(selectedLanguage)));
+                setOnboardingStep('done');
+              }}
+            >
+              <Text style={styles.continueText}>Continue</Text>
+              <ChevronRight color={colors.white} size={22} />
+            </TouchableOpacity>
+          </View>
+        )}
+      </SafeAreaView>
     );
   }
 
   return (
-    <NavigationContainer>
-      <Tab.Navigator
-        screenOptions={{
-          headerShown: true,
-          tabBarStyle: styles.tabBar,
-          headerStyle: styles.header,
-          headerTintColor: '#F0F6FC',
-          headerTitleStyle: styles.headerTitle,
-        }}
-      >
-        <Tab.Screen
-          name="Clinic"
-          component={ClinicScreen}
-          options={{
-            title: 'SHIFA Clinic',
-            tabBarLabel: 'Consult',
-            tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>🩺</Text>,
+    <I18nProvider>
+      <UIPreferencesProvider>
+        <StatusBar barStyle="light-content" backgroundColor={colors.night} />
+        <NavigationContainer>
+          <Tab.Navigator
+          screenOptions={{
+            headerShown: false,
+            tabBarActiveTintColor: colors.green,
+            tabBarInactiveTintColor: colors.muted,
+            tabBarStyle: styles.tabBar,
+            tabBarLabelStyle: styles.tabLabel,
           }}
-        />
-        <Tab.Screen
-          name="Guard"
-          component={GuardScreen}
-          options={{
-            title: 'SHIFA Guard',
-            tabBarLabel: 'Guard',
-            tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>🛡️</Text>,
-          }}
-        />
-        <Tab.Screen
-          name="Settings"
-          component={SettingsScreen}
-          options={{
-            title: 'Settings',
-            tabBarLabel: 'Settings',
-            tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>⚙️</Text>,
-          }}
-        />
-      </Tab.Navigator>
-    </NavigationContainer>
+        >
+          <Tab.Screen
+            name="Consult"
+            component={ClinicScreen}
+            options={{
+              tabBarIcon: ({ color }) => <Stethoscope color={color} size={22} />,
+            }}
+          />
+          <Tab.Screen
+            name="Guard"
+            component={GuardScreen}
+            options={{
+              tabBarIcon: ({ color }) => <Shield color={color} size={22} />,
+            }}
+          />
+          <Tab.Screen
+            name="Cases"
+            component={CasesScreen}
+            options={{
+              tabBarIcon: ({ color }) => <FileText color={color} size={22} />,
+            }}
+          />
+          <Tab.Screen
+            name="Settings"
+            component={SettingsScreen}
+            options={{
+              tabBarIcon: ({ color }) => <Settings color={color} size={22} />,
+            }}
+          />
+          </Tab.Navigator>
+        </NavigationContainer>
+      </UIPreferencesProvider>
+    </I18nProvider>
   );
 }
 
+function languageCodeFromLabel(label: string): string {
+  if (label === 'Hausa') return 'ha';
+  if (label === 'Lingala') return 'ln';
+  if (label === 'Français') return 'fr';
+  if (label === 'Kinyarwanda') return 'rw';
+  if (label === 'Somali') return 'so';
+  if (label === 'العربية') return 'ar';
+  return 'en';
+}
+
 const styles = StyleSheet.create({
-  center: {
+  loading: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0D1117',
+    backgroundColor: colors.paper,
   },
   loadingText: {
-    color: '#F0F6FC',
+    color: colors.ink,
     marginTop: 10,
     fontSize: 16,
+    fontWeight: '700',
   },
   tabBar: {
-    backgroundColor: '#161B22',
-    borderTopColor: '#30363D',
+    minHeight: 68,
+    paddingTop: 8,
+    paddingBottom: 10,
+    backgroundColor: colors.paperStrong,
+    borderTopColor: colors.line,
+    borderTopWidth: 1,
   },
-  header: {
-    backgroundColor: '#0D1117',
-    borderBottomColor: '#30363D',
+  tabLabel: {
+    fontSize: 12,
+    fontWeight: '800',
   },
-  headerTitle: {
-    color: '#F0F6FC',
-    fontSize: 18,
+  onboarding: {
+    flex: 1,
+    backgroundColor: colors.paper,
+  },
+  splash: {
+    backgroundColor: colors.night,
+  },
+  splashInner: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  logoBox: {
+    width: 92,
+    height: 92,
+    borderRadius: 24,
+    backgroundColor: colors.paperStrong,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: '#DFF8E8',
+  },
+  logoCross: {
+    color: colors.green,
+    fontSize: 72,
+    fontWeight: '900',
+    lineHeight: 78,
+  },
+  brand: {
+    color: colors.white,
+    fontSize: 42,
+    fontWeight: '900',
+    marginTop: 24,
+  },
+  arabic: {
+    color: colors.white,
+    fontSize: 26,
+    fontWeight: '800',
+    marginTop: 4,
+  },
+  tagline: {
+    color: '#D8F7E3',
+    fontSize: 15,
+    textAlign: 'center',
+    marginTop: 22,
+  },
+  dots: {
+    flexDirection: 'row',
+    marginTop: 64,
+  },
+  dot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#557A68',
+    marginHorizontal: 5,
+  },
+  dotActive: {
+    backgroundColor: '#22C55E',
+  },
+  splashStatus: {
+    color: '#4ADE80',
+    position: 'absolute',
+    bottom: 30,
+    fontWeight: '800',
+  },
+  hiddenAdvance: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+  },
+  setupPage: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 36,
+  },
+  setupTitle: {
+    color: colors.ink,
+    fontSize: 26,
+    fontWeight: '900',
+    marginTop: 22,
+  },
+  setupSubtitle: {
+    color: colors.muted,
+    fontSize: 15,
+    marginTop: 4,
+    marginBottom: 18,
+  },
+  optionRow: {
+    minHeight: 64,
+    borderRadius: 8,
+    backgroundColor: colors.paperStrong,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    marginBottom: 10,
+  },
+  optionRowActive: {
+    backgroundColor: colors.greenSoft,
+    borderColor: colors.green,
+  },
+  flag: {
+    fontSize: 32,
+    width: 48,
+  },
+  optionText: {
+    flex: 1,
+  },
+  optionLabel: {
+    color: colors.ink,
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  optionLocal: {
+    color: colors.green,
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  radio: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    borderColor: colors.lineStrong,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  radioActive: {
+    backgroundColor: colors.green,
+    borderColor: colors.green,
+  },
+  setupFooter: {
+    color: colors.ink,
+    textAlign: 'center',
+    marginTop: 20,
+    fontSize: 13,
     fontWeight: '600',
+  },
+  continueButton: {
+    marginTop: 16,
+    height: 58,
+    borderRadius: 8,
+    backgroundColor: colors.green,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  continueText: {
+    color: colors.white,
+    fontSize: 18,
+    fontWeight: '900',
+    marginRight: 12,
   },
 });

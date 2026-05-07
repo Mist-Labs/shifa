@@ -25,6 +25,7 @@ const CLINICAL_SYNONYMS: Record<string, string[]> = {
   bleeding: ['heavy bleeding', 'bleeding cannot be controlled', 'postpartum bleeding', 'vaginal bleeding'],
   pregnancy_headache: ['severe headache with visual disturbance', 'blurred vision in pregnancy', 'vision changes in pregnancy'],
   cord_prolapse: ['cord prolapse'],
+  meningitis: ['neck stiffness', 'stiff neck', 'photophobia', 'bulging fontanelle', 'altered consciousness'],
 };
 
 export class ClinicalEngine {
@@ -122,6 +123,7 @@ export class ClinicalEngine {
     const hasFever = this.includesAny(symLower, ['fever', 'hot body', 'high temperature']);
     const hasRash = this.includesAny(symLower, ['rash', 'lesion', 'blister', 'spots']);
     const hasRespiratory = this.includesAny(symLower, ['cough', 'fast breathing', 'difficulty breathing', 'chest indrawing', 'pneumonia']);
+    const hasMeningitisSign = this.includesAny(symLower, CLINICAL_SYNONYMS.meningitis);
 
     // SAM detection (any country)
     if ((muac !== undefined && muac < 11.5) || edema) {
@@ -159,6 +161,21 @@ export class ClinicalEngine {
           followUpHours: 168,
           returnTriggers: ['MUAC falls below 11.5cm', 'bilateral edema', 'poor appetite', 'fever or diarrhea'],
         },
+      };
+    }
+
+    if (country === 'nigeria' && hasFever && hasMeningitisSign) {
+      return {
+        decision: 'REFER_URGENT',
+        primaryDiagnosis: 'Suspected Meningococcal Meningitis',
+        differentialDiagnoses: ['Cerebral malaria', 'Sepsis', 'Meningitis'],
+        referral: this.referral(
+          'IMMEDIATE',
+          'Hospital / meningitis treatment facility',
+          ['Give ceftriaxone IM only if available, authorized, and age/weight are confirmed', 'Keep patient cool and protected during transport'],
+          'Northern Nigeria meningitis belt danger signs: fever with neck stiffness, photophobia, bulging fontanelle, or altered consciousness. Immediate referral required.',
+          ['Convulsions', 'Worsening confusion', 'Unconsciousness', 'Breathing difficulty']
+        ),
       };
     }
 
@@ -324,6 +341,9 @@ export class ClinicalEngine {
     if (signLower.includes('bleeding')) synonymGroups.push(CLINICAL_SYNONYMS.bleeding);
     if (signLower.includes('headache') || signLower.includes('visual')) synonymGroups.push(CLINICAL_SYNONYMS.pregnancy_headache);
     if (signLower.includes('cord prolapse')) synonymGroups.push(CLINICAL_SYNONYMS.cord_prolapse);
+    if (signLower.includes('neck stiffness') || signLower.includes('fontanelle') || signLower.includes('photophobia') || signLower.includes('consciousness')) {
+      synonymGroups.push(CLINICAL_SYNONYMS.meningitis);
+    }
 
     return synonymGroups.some((terms) => terms.some((term) => symptoms.includes(term)));
   }
@@ -367,6 +387,11 @@ export class ClinicalEngine {
         : routineRefer
           ? `Umurwayi akeneye gusuzumwa ku kigo nderabuzima. Impamvu: ${decision.primaryDiagnosis}.`
           : `Gahunda: ${decision.primaryDiagnosis}. Kurikiza intambwe, agaruke nibiba bibi.`,
+      ha: urgent
+        ? `A tura mara lafiya asibiti yanzu. Dalili: ${decision.primaryDiagnosis}. A kula da alamomin hadari a hanya.`
+        : routineRefer
+          ? `Mara lafiya yana bukatar a duba shi a cibiyar lafiya. Dalili: ${decision.primaryDiagnosis}.`
+          : `Tsari: ${decision.primaryDiagnosis}. Bi matakan, a dawo nan take idan alamar hadari ta bayyana.`,
     };
     return responseMap[language] || 'Refer patient to nearest facility.';
   }

@@ -1,0 +1,83 @@
+from __future__ import annotations
+
+import mimetypes
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from finetune.common import env, resolve_path, write_json
+
+
+def required_r2_env() -> dict[str, str]:
+    values = {
+        "R2_ACCOUNT_ID": env("R2_ACCOUNT_ID"),
+        "R2_BUCKET": env("R2_BUCKET"),
+        "AWS_ACCESS_KEY_ID": env("AWS_ACCESS_KEY_ID"),
+        "AWS_SECRET_ACCESS_KEY": env("AWS_SECRET_ACCESS_KEY"),
+    }
+    missing = [key for key, value in values.items() if not value]
+    if missing:
+        print(f"Skipping upload; missing env: {', '.join(missing)}")
+        return {}
+    return values
+
+
+def upload_file(client, bucket: str, path: Path, key: str) -> dict[str, str]:
+    content_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+    client.upload_file(
+        str(path),
+        bucket,
+        key,
+        ExtraArgs={"ContentType": content_type},
+    )
+    public_base = env("R2_PUBLIC_BASE_URL").rstrip("/")
+    return {
+        "key": key,
+        "path": str(path),
+        "size_bytes": path.stat().st_size,
+        "url": f"{public_base}/{key}" if public_base else "",
+    }
+
+
+def main() -> None:
+    config = required_r2_env()
+    if not config:
+        return
+
+    try:
+        import boto3
+    except ImportError as exc:  # pragma: no cover - checked on remote env.
+        raise SystemExit("Install boto3 from ml/requirements.txt before uploading artifacts") from exc
+
+    endpoint_url = f"https://{config['R2_ACCOUNT_ID']}.r2.cloudflarestorage.com"
+    client = boto3.client(
+        "s3",
+        endpoint_url=endpoint_url,
+        aws_access_key_id=config["AWS_ACCESS_KEY_ID"],
+        aws_secret_access_key=config["AWS_SECRET_ACCESS_KEY"],
+        region_name=env("AWS_DEFAULT_REGION", "auto"),
+    )
+
+    artifacts = [
+        (resolve_path(env("SHIFA_TRAIN_FILE", "data/processed/training_final.jsonl")), "data/processed/training_final.jsonl"),
+        (resolve_path(env("SHIFA_TEST_FILE", "data/test_cases/imci_test_60.jsonl")), "data/test_cases/imci_test_60.jsonl"),
+        (resolve_path("data/processed/synthetic_cases_2000.jsonl"), "data/processed/synthetic_cases_2000.jsonl"),
+        (resolve_path(env("SHIFA_LITERT_OUTPUT", "models/shifa-gemma4-e4b-finetuned.tflite")), "shifa-gemma4-e4b-finetuned.tflite"),
+        (resolve_path(env("SHIFA_VALIDATION_REPORT", "reports/validation_metrics.json")), "validation_metrics.json"),
+        (resolve_path("data/processed/source_manifest.json"), "source_manifest.json"),
+    ]
+
+    uploaded = []
+    for path, key in artifacts:
+        if path.exists():
+            uploaded.append(upload_file(client, config["R2_BUCKET"], path, key))
+        else:
+            print(f"Skipping missing artifact: {path}")
+
+    write_json("reports/upload_manifest.json", {"bucket": config["R2_BUCKET"], "artifacts": uploaded})
+    print("Upload manifest: reports/upload_manifest.json")
+
+
+if __name__ == "__main__":
+    main()

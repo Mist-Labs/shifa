@@ -1,7 +1,7 @@
 // Comprehensive type definitions for SHIFA backend
 
-export type Country = 'sudan' | 'drc' | 'somalia';
-export type Language = 'ar' | 'so' | 'fr' | 'ln' | 'rw'; // Arabic, Somali, French, Lingala, Kinyarwanda
+export type Country = 'sudan' | 'drc' | 'somalia' | 'nigeria';
+export type Language = 'ar' | 'so' | 'fr' | 'ln' | 'rw' | 'ha'; // Arabic, Somali, French, Lingala, Kinyarwanda, Hausa
 
 export type ClinicalDecision = 'TREAT' | 'REFER_URGENT' | 'REFER_ROUTINE' | 'MONITOR';
 export type ThreatType = 'armed_individuals' | 'vehicle_convoy' | 'motorbike_cluster' | 'gunfire_single' | 'gunfire_burst' | 'explosion' | 'combined';

@@ -3,9 +3,11 @@
     "name": "SHIFA",
     "slug": "shifa-health",
     "version": "1.0.0",
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
-      "supportsTabletMode": true,
+      "supportsTablet": true,
       "infoPlist": {
         "NSMicrophoneUsageDescription": "SHIFA Guard needs microphone access for threat detection",
         "NSCameraUsageDescription": "SHIFA needs camera for photo analysis and threat detection",
@@ -17,9 +19,13 @@
         "android.permission.RECORD_AUDIO",
         "android.permission.CAMERA",
         "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.ACCESS_COARSE_LOCATION"
-      ],
-      "minSdkVersion": 21
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.BLUETOOTH",
+        "android.permission.BLUETOOTH_ADMIN",
+        "android.permission.BLUETOOTH_SCAN",
+        "android.permission.BLUETOOTH_CONNECT",
+        "android.permission.BLUETOOTH_ADVERTISE"
+      ]
     },
     "plugins": [
       [
@@ -32,6 +38,20 @@
         "expo-location",
         {
           "locationAlwaysAndWhenInUsePermission": "SHIFA needs location"
+        }
+      ],
+      "expo-sqlite",
+      "expo-audio",
+      "expo-asset",
+      [
+        "react-native-ble-plx",
+        {
+          "isBackgroundEnabled": true,
+          "modes": [
+            "peripheral",
+            "central"
+          ],
+          "bluetoothAlwaysPermission": "Allow SHIFA to relay emergency Guard alerts to nearby SHIFA devices over Bluetooth."
         }
       ]
     ]

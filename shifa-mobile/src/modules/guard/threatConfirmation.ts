@@ -34,5 +34,12 @@ export async function onThreatConfirmed(
     smsDispatched: result.success,
     smsRecipients: result.delivered,
   });
-  await broadcastThreatViaBluetooth(alert);
+  const meshResult = await broadcastThreatViaBluetooth(alert);
+  if (meshResult.attempted) {
+    console.log(
+      `SHIFA BLE mesh relay delivered=${meshResult.deliveredPeers.length} failed=${meshResult.failedPeers.length}`
+    );
+  } else if (meshResult.reason) {
+    console.warn(`SHIFA BLE mesh relay skipped: ${meshResult.reason}`);
+  }
 }

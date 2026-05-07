@@ -44,6 +44,13 @@ const OUTBREAK_RULES: Record<string, OutbreakRule> = {
     radiusKm: 5,
     windowHours: 336,
   },
+  meningitis: {
+    condition: 'Meningitis',
+    aliases: ['meningitis', 'meningococcal', 'neck stiffness', 'bulging fontanelle'],
+    minCases: 2,
+    radiusKm: 5,
+    windowHours: 168,
+  },
 };
 
 export class OutbreakDetector {
