@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import unsloth
+
 import os
 
 from common import env, env_float, env_int, resolve_path
@@ -17,10 +19,9 @@ def main() -> None:
     try:
         import torch
         from datasets import load_dataset
-        from transformers import TrainingArguments
-        from trl import SFTTrainer
+        from trl import SFTConfig, SFTTrainer
         from unsloth import FastLanguageModel
-    except ImportError as exc:  # pragma: no cover - checked on remote GPU env.
+    except ImportError as exc:
         raise SystemExit("Install ml/requirements.txt on the GPU machine before training") from exc
 
     base_model = env("SHIFA_BASE_MODEL", "google/gemma-4-e4b-it")
@@ -60,11 +61,11 @@ def main() -> None:
 
     trainer = SFTTrainer(
         model=model,
-        tokenizer=tokenizer,
+        processing_class=tokenizer,
         train_dataset=dataset,
-        dataset_text_field="text",
-        max_seq_length=max_seq_length,
-        args=TrainingArguments(
+        args=SFTConfig(
+            dataset_text_field="text",
+            max_seq_length=max_seq_length,
             per_device_train_batch_size=env_int("SHIFA_BATCH_SIZE", 2),
             gradient_accumulation_steps=env_int("SHIFA_GRAD_ACCUM", 4),
             warmup_steps=10,
