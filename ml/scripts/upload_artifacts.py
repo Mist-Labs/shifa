@@ -65,6 +65,11 @@ def main() -> None:
         (resolve_path("data/processed/synthetic_cases_2000.jsonl"), "data/processed/synthetic_cases_2000.jsonl"),
         (resolve_path(env("SHIFA_LITERT_OUTPUT", "models/shifa-gemma4-e4b-finetuned.tflite")), "shifa-gemma4-e4b-finetuned.tflite"),
         (resolve_path(env("SHIFA_VALIDATION_REPORT", "reports/validation_metrics.json")), "validation_metrics.json"),
+        (resolve_path(env("SHIFA_GUARD_PT_MODEL", "models/shifa-guard-weapon-detector/best.pt")), "guard/shifa-guard-weapon-detector.pt"),
+        (resolve_path(env("SHIFA_GUARD_TFLITE_MODEL", "models/shifa-guard-weapon-detector/shifa-guard-weapon-detector.tflite")), "guard/shifa-guard-weapon-detector.tflite"),
+        (resolve_path(env("SHIFA_GUARD_VALIDATION_REPORT", "reports/guard_validation_metrics.json")), "guard/validation_metrics.json"),
+        (resolve_path("reports/guard_dataset_manifest.json"), "guard/dataset_manifest.json"),
+        (resolve_path("reports/guard_training_manifest.json"), "guard/training_manifest.json"),
         (resolve_path("data/processed/source_manifest.json"), "source_manifest.json"),
     ]
 

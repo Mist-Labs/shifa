@@ -33,5 +33,6 @@ ml/models/*
 ml/data/raw/*
 !ml/data/raw/.gitkeep
 ml/data/processed/extracted_sources/
+ml/data/guard/
 ml/reports/*.json
 !ml/reports/.gitkeep

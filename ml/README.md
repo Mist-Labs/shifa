@@ -35,6 +35,25 @@ python finetune/prepare_data.py
 
 The full `requirements.txt` intentionally points to `requirements-gpu.txt` and is for the remote training machine.
 
+## Guard Weapon Detector
+
+SHIFA Guard uses a separate compact object detector for phone camera/video evidence. Train it on a GPU box after `.env` is filled:
+
+```bash
+cd ml
+source .venv/bin/activate
+pip install -r requirements-guard.txt
+bash scripts/run_guard_training.sh
+```
+
+The Guard pipeline downloads the configured Hugging Face weapon dataset, exports YOLO-format `HANDGUN`, `RIFLE`, `SHOTGUN`, `HEAVY_WEAPON`, `RPG`, `KNIFE`, and `PERSON` labels where those source labels exist, trains a small YOLO detector, exports a TFLite model, validates against the test split, then uploads:
+
+- `guard/shifa-guard-weapon-detector.pt`
+- `guard/shifa-guard-weapon-detector.tflite`
+- `guard/validation_metrics.json`
+
+Runtime alerts should require high confidence and visible weapon classes. Do not trigger emergency dispatch from `PERSON` alone. IED/explosive detection requires a separate validated dataset; do not pretend the gun/knife dataset proves IED detection.
+
 ## Data Policy
 
 Use public clinical protocol sources only: WHO IMCI, WHO cholera/malaria/malnutrition guidance, Sphere, MSF guidance where permitted, and SHIFA country protocol modules. Do not include private patient records.
