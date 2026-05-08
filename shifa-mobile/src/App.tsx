@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { ActivityIndicator, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import NetInfo from '@react-native-community/netinfo';
 import {
@@ -19,6 +19,7 @@ import SettingsScreen from './screens/SettingsScreen';
 import CasesScreen from './screens/CasesScreen';
 import { initDatabase } from './db/sqlite';
 import { flushSMSQueue } from './services/alertSMS';
+import { syncHealthReports } from './services/syncReports';
 import { colors } from './design/system';
 import { UIPreferencesProvider } from './services/uiPreferences';
 import { I18nProvider, saveLanguagePreference, toAppLanguage } from './services/i18n';
@@ -66,6 +67,11 @@ export default function App() {
     const unsubscribe = NetInfo.addEventListener((state) => {
       if (state.isConnected && state.type !== 'none') {
         void flushSMSQueue();
+        void syncHealthReports().then((result) => {
+          if (result.success && result.syncedCount > 0) {
+            Alert.alert('SHIFA reports sent', result.message);
+          }
+        });
       }
     });
     return unsubscribe;
@@ -164,14 +170,15 @@ export default function App() {
         <StatusBar barStyle="light-content" backgroundColor={colors.night} />
         <NavigationContainer>
           <Tab.Navigator
-          screenOptions={{
-            headerShown: false,
-            tabBarActiveTintColor: colors.green,
-            tabBarInactiveTintColor: colors.muted,
-            tabBarStyle: styles.tabBar,
-            tabBarLabelStyle: styles.tabLabel,
-          }}
-        >
+            screenOptions={{
+              headerShown: false,
+              tabBarActiveTintColor: colors.green,
+              tabBarInactiveTintColor: '#7A8780',
+              tabBarStyle: styles.tabBar,
+              tabBarLabelStyle: styles.tabLabel,
+              tabBarItemStyle: styles.tabItem,
+            }}
+          >
           <Tab.Screen
             name="Consult"
             component={ClinicScreen}
@@ -231,16 +238,30 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   tabBar: {
-    minHeight: 68,
-    paddingTop: 8,
-    paddingBottom: 10,
-    backgroundColor: colors.paperStrong,
-    borderTopColor: colors.line,
-    borderTopWidth: 1,
+    position: 'absolute',
+    left: 14,
+    right: 14,
+    bottom: 12,
+    minHeight: 66,
+    paddingTop: 7,
+    paddingBottom: 8,
+    backgroundColor: 'rgba(252,255,252,0.96)',
+    borderTopWidth: 0,
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#DDE7E0',
+    shadowColor: '#0F2A1C',
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 10,
   },
   tabLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
+  },
+  tabItem: {
+    borderRadius: 8,
   },
   onboarding: {
     flex: 1,
@@ -336,9 +357,9 @@ const styles = StyleSheet.create({
   optionRow: {
     minHeight: 64,
     borderRadius: 8,
-    backgroundColor: colors.paperStrong,
-    borderWidth: 1.5,
-    borderColor: colors.line,
+    backgroundColor: colors.white,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#DDE7E0',
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
@@ -389,7 +410,7 @@ const styles = StyleSheet.create({
   },
   continueButton: {
     marginTop: 16,
-    height: 58,
+    height: 54,
     borderRadius: 8,
     backgroundColor: colors.green,
     flexDirection: 'row',

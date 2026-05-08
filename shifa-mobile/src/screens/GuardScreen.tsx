@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, RefreshControl, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
@@ -19,29 +19,45 @@ export default function GuardScreen() {
   const [guardAnalysis, setGuardAnalysis] = useState<GuardThreatAnalysis | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [recordingVideo, setRecordingVideo] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [cameraMode, setCameraMode] = useState<'picture' | 'video'>('picture');
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [microphonePermission, requestMicrophonePermission] = useMicrophonePermissions();
   const cameraRef = useRef<CameraView>(null);
   const { t } = useI18n();
 
+  const loadGuardProfile = useCallback(async () => {
+    const nextProfile = await getActiveCHWProfile();
+    setProfile(nextProfile);
+    setGuardEnabled(nextProfile.guardEnabled);
+    if (nextProfile.guardEnabled) {
+      void startBluetoothThreatRelay(`SHIFA-${nextProfile.id}`);
+    } else {
+      void stopBluetoothThreatRelay();
+    }
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       let active = true;
-      getActiveCHWProfile().then((nextProfile) => {
+      loadGuardProfile().finally(() => {
         if (!active) return;
-        setProfile(nextProfile);
-        setGuardEnabled(nextProfile.guardEnabled);
-        if (nextProfile.guardEnabled) {
-          void startBluetoothThreatRelay(`SHIFA-${nextProfile.id}`);
-        }
       });
       return () => {
         active = false;
         void stopBluetoothThreatRelay();
       };
-    }, [])
+    }, [loadGuardProfile])
   );
+
+  const refreshGuard = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await loadGuardProfile();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [loadGuardProfile]);
 
   const analyzeAndDispatchThreat = async () => {
     try {
@@ -171,7 +187,17 @@ export default function GuardScreen() {
 
   return (
     <SafeAreaView style={styles.screen}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={refreshGuard}
+            tintColor="#C4B5FD"
+            colors={[colors.purple]}
+          />
+        }
+      >
         <View style={styles.headerRow}>
           <View>
             <Text style={styles.title}>{t('shifaGuard')}</Text>
@@ -344,7 +370,7 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.white,
-    fontSize: 22,
+    fontSize: 26,
     fontWeight: '900',
   },
   subtitle: {
@@ -358,7 +384,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 9,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: '#513075',
   },
   smsText: {
@@ -376,7 +402,7 @@ const styles = StyleSheet.create({
     height: 236,
     borderRadius: 8,
     backgroundColor: '#130820',
-    borderWidth: 1.5,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: '#6D54A3',
     alignItems: 'center',
     justifyContent: 'center',
@@ -461,10 +487,12 @@ const styles = StyleSheet.create({
     marginTop: 12,
     minHeight: 72,
     borderRadius: 8,
-    backgroundColor: '#542699',
+    backgroundColor: '#4C238C',
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#8B5CF6',
   },
   evidenceActions: {
     flexDirection: 'row',
@@ -472,11 +500,11 @@ const styles = StyleSheet.create({
   },
   captureButton: {
     flex: 1,
-    minHeight: 52,
+    minHeight: 50,
     borderRadius: 8,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: '#8B5CF6',
-    backgroundColor: '#321550',
+    backgroundColor: '#2D1249',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -506,11 +534,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   sectionLabel: {
-    color: colors.white,
+    color: '#DDD6FE',
     fontWeight: '900',
-    fontSize: 15,
+    fontSize: 12,
     marginTop: 20,
     marginBottom: 8,
+    letterSpacing: 0,
   },
   recipients: {
     flexDirection: 'row',
@@ -518,12 +547,12 @@ const styles = StyleSheet.create({
   },
   recipientChip: {
     borderRadius: 8,
-    backgroundColor: '#3B1A64',
+    backgroundColor: '#2D1249',
     paddingHorizontal: 12,
     paddingVertical: 10,
     marginRight: 8,
     marginBottom: 8,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: '#6D54A3',
   },
   recipientText: {
@@ -536,7 +565,7 @@ const styles = StyleSheet.create({
   },
   guardEvidencePanel: {
     borderRadius: 8,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: '#6D54A3',
     backgroundColor: '#241039',
     padding: 10,
@@ -550,7 +579,7 @@ const styles = StyleSheet.create({
   guardEvidenceRow: {
     minHeight: 60,
     borderRadius: 8,
-    backgroundColor: '#321550',
+    backgroundColor: '#2D1249',
     flexDirection: 'row',
     alignItems: 'center',
     padding: 8,
@@ -587,7 +616,7 @@ const styles = StyleSheet.create({
   guardDeleteButton: {
     minHeight: 38,
     borderRadius: 8,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: '#FCA5A5',
     justifyContent: 'center',
     paddingHorizontal: 10,
@@ -601,7 +630,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 16,
     marginTop: 18,
-    borderWidth: 1.5,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: '#C4B5FD',
   },
   threatTitleRow: {
@@ -654,8 +683,8 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     padding: 16,
-    backgroundColor: colors.purpleDeep,
-    borderTopWidth: 1,
+    backgroundColor: 'rgba(26,11,46,0.96)',
+    borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: '#513075',
   },
   testButton: {
@@ -679,7 +708,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginTop: 10,
     backgroundColor: '#321550',
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: '#7C3AED',
     flexDirection: 'row',
     alignItems: 'center',

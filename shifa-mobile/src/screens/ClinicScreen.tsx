@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   Animated,
   Image,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Switch,
@@ -14,6 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useNetInfo } from '@react-native-community/netinfo';
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 import * as DocumentPicker from 'expo-document-picker';
 import {
@@ -25,12 +27,13 @@ import {
   useAudioRecorder,
   useAudioRecorderState,
 } from 'expo-audio';
-import { AlertTriangle, Camera, CheckCircle, Clock, FileUp, FileText, Mic, Square, Video, Volume2, X } from 'lucide-react-native';
+import { AlertTriangle, Camera, CheckCircle, Cloud, CloudOff, FileUp, FileText, Mic, Square, Video, Volume2, X } from 'lucide-react-native';
 import { ClinicalDecision, logConsultation } from '../services/caseLog';
 import { getActiveCHWProfile } from '../services/chwProfile';
 import { colors, decisionColor, decisionSoftColor, fieldShadow, highContrastShadow } from '../design/system';
 import { useUIPreferences } from '../services/uiPreferences';
 import { analyzeClinicalCase, buildEvidenceAsset, EvidenceAsset, getFieldSafeAIMessage, isGeminiConfigured } from '../services/gemini';
+import { getHealthDataCenterUrl, getHealthSyncSummary, HealthSyncSummary, syncHealthReports } from '../services/syncReports';
 import { useI18n } from '../services/i18n';
 
 type ConsultStage = 'ready' | 'photo' | 'upload' | 'listening' | 'processing' | 'result' | 'playback';
@@ -65,17 +68,21 @@ export default function ClinicScreen() {
   const [cameraMode, setCameraMode] = useState<'picture' | 'video'>('picture');
   const [recordingClinicalVideo, setRecordingClinicalVideo] = useState(false);
   const [patientMenuOpen, setPatientMenuOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [syncSummary, setSyncSummary] = useState<HealthSyncSummary | null>(null);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [cameraMicrophonePermission, requestCameraMicrophonePermission] = useMicrophonePermissions();
   const audioRecorder = useAudioRecorder(recordingOptions);
   const audioState = useAudioRecorderState(audioRecorder, 250);
   const audioPlayer = useAudioPlayer(audioRecordingUri ? { uri: audioRecordingUri } : null, { updateInterval: 250 });
   const audioPlayerStatus = useAudioPlayerStatus(audioPlayer);
+  const recorderActionInFlight = useRef(false);
   const pulseOne = useRef(new Animated.Value(0)).current;
   const pulseTwo = useRef(new Animated.Value(0)).current;
   const pulseThree = useRef(new Animated.Value(0)).current;
   const cameraRef = useRef<CameraView>(null);
   const navigation = useNavigation<any>();
+  const netInfo = useNetInfo();
   const { darkMode } = useUIPreferences();
   const { t } = useI18n();
 
@@ -108,7 +115,20 @@ export default function ClinicScreen() {
     setLogged(false);
   }, []);
 
+  const refreshPatientScreen = useCallback(() => {
+    setRefreshing(true);
+    setPatientMenuOpen(false);
+    resetToPatientDetails();
+    void getHealthSyncSummary().then(setSyncSummary).finally(() => setRefreshing(false));
+  }, [resetToPatientDetails]);
+
   useFocusEffect(resetToPatientDetails);
+
+  useFocusEffect(
+    useCallback(() => {
+      void getHealthSyncSummary().then(setSyncSummary);
+    }, [])
+  );
 
   useEffect(() => {
     return navigation.addListener('tabPress', resetToPatientDetails);
@@ -159,24 +179,37 @@ export default function ClinicScreen() {
     (Number.isFinite(parsed.muacCm) && parsed.muacCm !== 0) ||
     bilateralEdema ||
     clinicalEvidence.length > 0;
+  const online = Boolean(netInfo.isConnected && netInfo.type !== 'none');
 
   const beginConsult = async () => {
+    if (recorderActionInFlight.current || audioState.isRecording || stage === 'listening') return;
+    recorderActionInFlight.current = true;
     if (!isGeminiConfigured()) {
       Alert.alert('Google AI key missing', 'Add EXPO_PUBLIC_GOOGLE_API_KEY or EXPO_PUBLIC_GEMINI_API_KEY to shifa-mobile/.env before clinical AI analysis.');
+      recorderActionInFlight.current = false;
       return;
     }
-    const permission = await requestRecordingPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert('Microphone permission required', 'Microphone access is required to record the consultation audio.');
-      return;
+    try {
+      const permission = await requestRecordingPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Microphone permission required', 'Microphone access is required to record the consultation audio.');
+        return;
+      }
+      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+      const recorderStatus = audioRecorder.getStatus();
+      if (!recorderStatus.canRecord) {
+        await audioRecorder.prepareToRecordAsync();
+      }
+      audioRecorder.record();
+      setLogged(false);
+      setAudioRecordingUri(null);
+      setRecordingLevels(Array.from({ length: 36 }, () => 0.08));
+      setStage('listening');
+    } catch (error) {
+      Alert.alert('Recording unavailable', error instanceof Error ? error.message : 'Unable to start consultation recording.');
+    } finally {
+      recorderActionInFlight.current = false;
     }
-    await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
-    await audioRecorder.prepareToRecordAsync();
-    audioRecorder.record();
-    setLogged(false);
-    setAudioRecordingUri(null);
-    setRecordingLevels(Array.from({ length: 36 }, () => 0.08));
-    setStage('listening');
   };
 
   const openClinicalCamera = async (mode: 'picture' | 'video' = 'picture') => {
@@ -280,14 +313,17 @@ export default function ClinicScreen() {
   };
 
   const stopListening = async () => {
+    if (recorderActionInFlight.current) return;
+    recorderActionInFlight.current = true;
     let nextAudioUri: string | null = null;
-    if (audioState.isRecording) {
-      await audioRecorder.stop();
-      nextAudioUri = audioRecorder.uri ?? audioState.url ?? null;
-      setAudioRecordingUri(nextAudioUri);
-      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
-    }
     try {
+      const recorderStatus = audioRecorder.getStatus();
+      if (audioState.isRecording || recorderStatus.isRecording) {
+        await audioRecorder.stop();
+        nextAudioUri = audioRecorder.uri ?? audioState.url ?? null;
+        setAudioRecordingUri(nextAudioUri);
+      }
+      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
       if (nextAudioUri) {
         const audioEvidence = await buildEvidenceAsset({
           uri: nextAudioUri,
@@ -301,6 +337,8 @@ export default function ClinicScreen() {
     } catch (error) {
       setStage('ready');
       Alert.alert('Audio attachment failed', error instanceof Error ? error.message : 'Unable to attach consultation audio.');
+    } finally {
+      recorderActionInFlight.current = false;
     }
   };
 
@@ -348,7 +386,22 @@ export default function ClinicScreen() {
       audioRecordingUri: audioRecordingUri ?? undefined,
     });
     setLogged(true);
-    Alert.alert('Case saved offline', 'This consultation is stored locally and will sync when connectivity is available.');
+    const syncResult = await syncHealthReports();
+    await getHealthSyncSummary().then(setSyncSummary);
+    if (syncResult.offline) {
+      Alert.alert('Case saved offline', syncResult.message);
+      return;
+    }
+    if (!syncResult.success) {
+      Alert.alert('Case saved locally', `${syncResult.message}\n\nDestination: ${getHealthDataCenterUrl()}`);
+      return;
+    }
+    Alert.alert(
+      syncResult.syncedCount > 0 ? 'Report sent' : 'Case saved',
+      syncResult.syncedCount > 0
+        ? `${syncResult.message}${syncResult.outbreakCount ? ` ${syncResult.outbreakCount} outbreak alert returned.` : ''}`
+        : 'This consultation is already synced.'
+    );
   };
 
   if (stage === 'listening') {
@@ -525,6 +578,7 @@ export default function ClinicScreen() {
         }}
         onLogCase={handleLogCase}
         logged={logged}
+        syncSummary={syncSummary}
         hasAudio={Boolean(audioRecordingUri)}
         onListen={() => {
           if (!audioRecordingUri) {
@@ -559,7 +613,17 @@ export default function ClinicScreen() {
 
   return (
     <SafeAreaView style={[styles.screen, darkMode && styles.homeDarkScreen]}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={refreshPatientScreen}
+            tintColor={colors.green}
+            colors={[colors.green]}
+          />
+        }
+      >
         <View style={styles.topRow}>
           <TouchableOpacity
             accessibilityRole="button"
@@ -573,8 +637,9 @@ export default function ClinicScreen() {
               <Text style={[styles.menuText, darkMode && styles.homeDarkText]}>☰</Text>
             )}
           </TouchableOpacity>
-          <View style={styles.signalPill}>
-            <Text style={styles.signalText}>2G • ▮▮</Text>
+          <View style={[styles.signalPill, !online && styles.signalPillOffline]}>
+            {online ? <Cloud color={colors.green} size={15} /> : <CloudOff color={colors.amber} size={15} />}
+            <Text style={[styles.signalText, !online && styles.signalTextOffline]}>{online ? 'Online' : 'Offline'}</Text>
           </View>
           <View style={styles.guardPill}>
             <Text style={styles.guardText}>GUARD ON</Text>
@@ -602,6 +667,13 @@ export default function ClinicScreen() {
         <Text style={[styles.subtitle, darkMode && styles.homeDarkMuted]}>
           {t('consultSubtitle')}
         </Text>
+
+        <View style={[styles.workflowCard, darkMode && styles.homeDarkCard]}>
+          <WorkflowStep index={1} label="Patient details" active={hasClinicalInput} dark={darkMode} />
+          <WorkflowStep index={2} label="Evidence" active={clinicalEvidence.length > 0 || Boolean(audioRecordingUri)} dark={darkMode} />
+          <WorkflowStep index={3} label="AI analysis" active={Boolean(decision)} dark={darkMode} />
+          <WorkflowStep index={4} label={logged ? 'Saved' : 'Log & sync'} active={logged} dark={darkMode} last />
+        </View>
 
         <View style={[styles.formCard, darkMode && styles.homeDarkCard]}>
           <Text style={[styles.formTitle, darkMode && styles.homeDarkText]}>{t('fieldMeasurements')}</Text>
@@ -701,6 +773,17 @@ export default function ClinicScreen() {
           <Text style={styles.analyzeButtonText}>{t('analyzeCase')}</Text>
         </TouchableOpacity>
 
+        <View style={[styles.readinessBanner, darkMode && styles.homeDarkCard]}>
+          <Text style={[styles.readinessBannerTitle, darkMode && styles.homeDarkText]}>
+            {online ? 'Reports will send after logging' : 'Offline mode active'}
+          </Text>
+          <Text style={[styles.readinessBannerText, darkMode && styles.homeDarkMuted]} numberOfLines={2}>
+            {online
+              ? `${syncSummary?.queuedReports ?? 0} queued • Data center ${getHealthDataCenterUrl()}`
+              : `${syncSummary?.queuedReports ?? 0} reports queued. SHIFA will retry when internet returns.`}
+          </Text>
+        </View>
+
       </ScrollView>
     </SafeAreaView>
   );
@@ -712,6 +795,7 @@ function ResultScreen({
   onLogCase,
   onListen,
   logged,
+  syncSummary,
   hasAudio,
 }: {
   decision: ClinicalDecision;
@@ -724,9 +808,9 @@ function ResultScreen({
   onLogCase: () => Promise<void>;
   onListen: () => void;
   logged: boolean;
+  syncSummary: HealthSyncSummary | null;
   hasAudio: boolean;
 }) {
-  const [showOfflineNotice, setShowOfflineNotice] = useState(true);
   const urgent = decision.decision === 'REFER_URGENT';
   const monitor = decision.decision === 'MONITOR';
   const mainColor = decisionColor(decision.decision);
@@ -745,7 +829,13 @@ function ResultScreen({
 
         <View style={[styles.diagnosisCard, { backgroundColor: soft, borderColor: mainColor }]}>
           <Text style={[styles.diagnosisTitle, { color: mainColor }]}>{decision.primaryDiagnosis}</Text>
-          <Text style={styles.diagnosisText}>Confidence: {Math.round(decision.confidence * 100)}%</Text>
+          <Text style={styles.diagnosisText}>Confidence: {Math.round(decision.confidence * 100)}% • {decision.dangerSigns.length} danger sign{decision.dangerSigns.length === 1 ? '' : 's'}</Text>
+        </View>
+
+        <View style={styles.resultTriageGrid}>
+          <ResultMetric label="Decision" value={urgent ? 'Urgent referral' : monitor ? 'Monitor' : 'Treat here'} color={mainColor} />
+          <ResultMetric label="Audio" value={hasAudio ? 'Attached' : 'None'} color={hasAudio ? colors.green : colors.amber} />
+          <ResultMetric label="Report" value={logged ? 'Saved' : 'Not saved'} color={logged ? colors.green : colors.amber} />
         </View>
 
         <Text style={styles.sectionHeader}>{urgent ? 'BEFORE YOU GO' : monitor ? 'HOME CARE' : 'TREATMENT STEPS'}</Text>
@@ -789,17 +879,17 @@ function ResultScreen({
             <Text style={styles.referralMeta}>CHW: Field profile • Time: {new Date().toISOString().substring(0, 16)} UTC</Text>
           </View>
         )}
-      </ScrollView>
 
-      {showOfflineNotice && (
-        <View style={styles.resultOfflineNotice}>
-          <Clock color={colors.green} size={16} />
-          <Text style={styles.resultOfflineText}>Offline • No data sent</Text>
-          <TouchableOpacity style={styles.resultOfflineOk} onPress={() => setShowOfflineNotice(false)}>
-            <Text style={styles.resultOfflineOkText}>OK</Text>
-          </TouchableOpacity>
+        <View style={styles.reportStatusCard}>
+          <Text style={styles.reportStatusTitle}>Report status</Text>
+          <Text style={styles.reportStatusText}>
+            {logged
+              ? `${syncSummary?.queuedReports ?? 0} queued locally • ${syncSummary?.sentReports ?? 0} sent to data center`
+              : 'Log this case to save it locally and send it to the SHIFA data center.'}
+          </Text>
+          <Text style={styles.reportStatusDestination} numberOfLines={1}>{syncSummary?.destination ?? getHealthDataCenterUrl()}</Text>
         </View>
-      )}
+      </ScrollView>
 
       <View style={styles.stickyActions}>
         <TouchableOpacity style={[styles.secondaryAction, !hasAudio && styles.secondaryActionDisabled]} onPress={onListen} disabled={!hasAudio}>
@@ -812,6 +902,26 @@ function ResultScreen({
         </TouchableOpacity>
       </View>
     </SafeAreaView>
+  );
+}
+
+function WorkflowStep({ index, label, active, dark, last }: { index: number; label: string; active: boolean; dark: boolean; last?: boolean }) {
+  return (
+    <View style={[styles.workflowStep, last && styles.workflowStepLast]}>
+      <View style={[styles.workflowNumber, active && styles.workflowNumberActive]}>
+        <Text style={[styles.workflowNumberText, active && styles.workflowNumberTextActive]}>{active ? '✓' : index}</Text>
+      </View>
+      <Text style={[styles.workflowLabel, dark && styles.homeDarkMuted]} numberOfLines={1}>{label}</Text>
+    </View>
+  );
+}
+
+function ResultMetric({ label, value, color }: { label: string; value: string; color: string }) {
+  return (
+    <View style={styles.resultMetric}>
+      <Text style={styles.resultMetricLabel}>{label}</Text>
+      <Text style={[styles.resultMetricValue, { color }]} numberOfLines={1}>{value}</Text>
+    </View>
   );
 }
 
@@ -1257,10 +1367,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 7,
     marginRight: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  signalPillOffline: {
+    backgroundColor: colors.amberSoft,
   },
   signalText: {
     color: colors.green,
     fontWeight: '900',
+    marginLeft: 6,
+  },
+  signalTextOffline: {
+    color: colors.amber,
   },
   guardPill: {
     backgroundColor: colors.green,
@@ -1283,6 +1402,51 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginTop: 4,
     marginBottom: 18,
+  },
+  workflowCard: {
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#DDE7E0',
+    backgroundColor: colors.paperStrong,
+    padding: 12,
+    marginBottom: 14,
+  },
+  workflowStep: {
+    minHeight: 34,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#E5ECE7',
+    paddingVertical: 5,
+  },
+  workflowStepLast: {
+    borderBottomWidth: 0,
+  },
+  workflowNumber: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#EEF4F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  workflowNumberActive: {
+    backgroundColor: colors.green,
+  },
+  workflowNumberText: {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  workflowNumberTextActive: {
+    color: colors.white,
+  },
+  workflowLabel: {
+    flex: 1,
+    color: colors.ink,
+    fontSize: 13,
+    fontWeight: '800',
   },
   micOuter: {
     width: 164,
@@ -1343,6 +1507,26 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: 18,
     fontWeight: '900',
+  },
+  readinessBanner: {
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#DDE7E0',
+    backgroundColor: colors.paperStrong,
+    padding: 12,
+    marginBottom: 8,
+  },
+  readinessBannerTitle: {
+    color: colors.ink,
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  readinessBannerText: {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 4,
+    lineHeight: 17,
   },
   quickActions: {
     flexDirection: 'row',
@@ -1755,6 +1939,32 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
   },
+  resultTriageGrid: {
+    flexDirection: 'row',
+    gap: 8,
+    marginHorizontal: 16,
+    marginBottom: 12,
+  },
+  resultMetric: {
+    flex: 1,
+    minHeight: 58,
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#DDE7E0',
+    backgroundColor: colors.paperStrong,
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+  },
+  resultMetricLabel: {
+    color: colors.muted,
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  resultMetricValue: {
+    fontSize: 13,
+    fontWeight: '900',
+    marginTop: 4,
+  },
   sectionHeader: {
     color: colors.green,
     fontSize: 14,
@@ -1894,6 +2104,32 @@ const styles = StyleSheet.create({
     color: colors.ink,
     marginTop: 12,
     fontWeight: '700',
+  },
+  reportStatusCard: {
+    marginHorizontal: 16,
+    marginBottom: 18,
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#DDE7E0',
+    backgroundColor: colors.paperStrong,
+    padding: 14,
+  },
+  reportStatusTitle: {
+    color: colors.ink,
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  reportStatusText: {
+    color: colors.muted,
+    fontSize: 13,
+    fontWeight: '800',
+    marginTop: 5,
+  },
+  reportStatusDestination: {
+    color: colors.green,
+    fontSize: 12,
+    fontWeight: '800',
+    marginTop: 7,
   },
   stickyActions: {
     position: 'absolute',
