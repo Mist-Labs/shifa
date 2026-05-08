@@ -56,21 +56,21 @@ REQUIRED_SCHEMA_KEYS = [
 ]
 
 
-def run_inference(model: Any, tokenizer: Any, prompt: str, max_new_tokens: int = 1024) -> str:
+def run_inference(model: Any, tokenizer: Any, prompt: str, max_new_tokens: int = 768) -> str:
     import torch
 
-    inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+    # text= keyword required — unsloth patches Gemma4 tokenizer into a multimodal processor
+    # that does not accept positional text arguments.
+    inputs = tokenizer(text=prompt, return_tensors="pt").to(model.device)
     with torch.no_grad():
         output = model.generate(
             **inputs,
             max_new_tokens=max_new_tokens,
-            temperature=0.1,
-            top_p=0.95,
             do_sample=False,
             eos_token_id=tokenizer.eos_token_id,
         )
     decoded = tokenizer.decode(output[0], skip_special_tokens=True)
-    return decoded[len(prompt) :] if decoded.startswith(prompt) else decoded
+    return decoded[len(prompt):] if decoded.startswith(prompt) else decoded
 
 
 def combined_text(pred: dict[str, Any]) -> str:
@@ -95,8 +95,14 @@ def infer_decision(pred: dict[str, Any]) -> str:
         confidence_value = 0
 
     text = combined_text(pred)
+
+    # danger_signs may be a list or a string like "None reported" — handle both
     danger_signs = pred.get("danger_signs") or []
-    has_danger_signs = isinstance(danger_signs, list) and len(danger_signs) > 0
+    if isinstance(danger_signs, list):
+        has_danger_signs = len(danger_signs) > 0
+    else:
+        ds_text = str(danger_signs).lower()
+        has_danger_signs = bool(danger_signs) and "none" not in ds_text
 
     if any(keyword in text for keyword in ROUTINE_REFER_KEYWORDS):
         return "REFER_ROUTINE"
@@ -130,7 +136,7 @@ def validate_drug_doses(pred: dict[str, Any], expected: dict[str, Any], case: di
 
 def score_case(pred: dict[str, Any], case: dict[str, Any]) -> dict[str, bool]:
     expected = case["expected_decision"]
-    pred_danger = {normalize_text(item) for item in pred.get("danger_signs", [])}
+    pred_danger = {normalize_text(item) for item in pred.get("danger_signs", []) if isinstance(pred.get("danger_signs"), list)}
     required_danger = {normalize_text(item) for item in case.get("required_danger_signs", [])}
     diagnosis = normalize_text(pred.get("primary_diagnosis"))
     expected_diagnosis = normalize_text(expected.get("primary_diagnosis"))
@@ -164,7 +170,7 @@ def main() -> None:
     model_dir = str(resolve_path(env("SHIFA_MODEL_DIR", "models/shifa-gemma4-e4b-finetuned")))
     test_file = env("SHIFA_TEST_CASES") or env("SHIFA_TEST_FILE", "data/test_cases/imci_test_60.jsonl")
     report_path = env("SHIFA_VALIDATION_REPORT", "reports/validation_metrics.json")
-    max_seq_length = int(env("SHIFA_MAX_SEQ_LENGTH", "8192"))
+    max_seq_length = int(env("SHIFA_MAX_SEQ_LENGTH", "2048"))
 
     model, tokenizer = FastLanguageModel.from_pretrained(
         model_dir,
@@ -184,7 +190,7 @@ def main() -> None:
     }
     failures: list[dict[str, Any]] = []
 
-    for case in cases:
+    for i, case in enumerate(cases, 1):
         prompt = (
             f"<start_of_turn>system\n{country_prompt(case['country'], case['language'])}<end_of_turn>\n"
             f"<start_of_turn>user\n{case['symptom_text']}<end_of_turn>\n"
@@ -200,8 +206,17 @@ def main() -> None:
 
         for key, passed in result.items():
             totals[key] += int(passed)
+
+        status = "✅" if result.get("decision_correct") else "❌"
+        print(f"[{i}/60] {status} {case['id']}")
+
         if not all(result.values()):
-            failures.append({"case_id": case["id"], "result": result, "prediction": pred, "expected": case["expected_decision"]})
+            failures.append({
+                "case_id": case["id"],
+                "result": result,
+                "prediction": pred,
+                "expected": case["expected_decision"],
+            })
 
     n = len(cases)
     metrics = {
@@ -225,7 +240,7 @@ def main() -> None:
         key: metrics[key] >= target for key, target in metrics["targets"].items()
     }
     write_json(report_path, metrics)
-    print(f"Decision accuracy:    {metrics['decision_accuracy'] * 100:.1f}% (target >88%)")
+    print(f"\nDecision accuracy:    {metrics['decision_accuracy'] * 100:.1f}% (target >88%)")
     print(f"Decision explicit:    {metrics['decision_explicit_rate'] * 100:.1f}%")
     print(f"Schema complete:      {metrics['schema_complete_rate'] * 100:.1f}%")
     print(f"Danger sign detect:   {metrics['danger_sign_accuracy'] * 100:.1f}% (target >92%)")
