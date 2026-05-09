@@ -21,6 +21,21 @@ CONDITIONS = {
 }
 
 SEX = ["female", "male"]
+VALID_DECISIONS = {"TREAT", "REFER_URGENT", "REFER_ROUTINE"}
+
+
+def child_weight_for_age(age_months: int, rng: random.Random) -> float:
+    if age_months < 6:
+        low, high = 3.0, 7.5
+    elif age_months < 12:
+        low, high = 6.0, 10.5
+    elif age_months < 24:
+        low, high = 8.0, 13.5
+    elif age_months < 60:
+        low, high = 10.0, 20.5
+    else:
+        low, high = 16.0, 45.0
+    return round(rng.uniform(low, high), 1)
 
 
 def decision(
@@ -33,6 +48,9 @@ def decision(
     referral_message: str | None = None,
     drug_doses: list[dict[str, str]] | None = None,
 ) -> dict[str, Any]:
+    if decision_value not in VALID_DECISIONS:
+        raise ValueError(f"Unsupported decision value for training data: {decision_value}")
+
     treatment = None
     referral = None
     monitoring = None
@@ -51,7 +69,7 @@ def decision(
             "message_for_facility": referral_message or diagnosis,
             "danger_signs_en_route": danger_signs or ["worsening consciousness"],
         }
-    else:
+    if decision_value == "TREAT":
         monitoring = {
             "watch_signs": ["fever", "poor feeding", "breathing difficulty"],
             "return_if": ["danger sign appears", "symptoms worsen"],
@@ -74,24 +92,26 @@ def decision(
 
 
 def voice_response(decision_value: str, diagnosis: str, language: str) -> str:
+    urgent = decision_value == "REFER_URGENT"
+    routine = decision_value == "REFER_ROUTINE"
     if language == "ha":
-        return f"{'A tura mara lafiya yanzu' if decision_value == 'REFER_URGENT' else 'Bi tsarin magani'}: {diagnosis}."
+        return f"{'A tura mara lafiya yanzu' if urgent else 'A tura cikin awa 24' if routine else 'Bi tsarin magani'}: {diagnosis}."
     if language == "ar":
-        return f"{'حوّل المريض الآن' if decision_value == 'REFER_URGENT' else 'اتبع خطة العلاج'}: {diagnosis}."
+        return f"{'حوّل المريض الآن' if urgent else 'حوّل خلال 24 ساعة' if routine else 'اتبع خطة العلاج'}: {diagnosis}."
     if language == "so":
-        return f"{'U gudbi bukaanka hadda' if decision_value == 'REFER_URGENT' else 'Raac qorshaha daaweynta'}: {diagnosis}."
+        return f"{'U gudbi bukaanka hadda' if urgent else 'U gudbi 24 saac gudahood' if routine else 'Raac qorshaha daaweynta'}: {diagnosis}."
     if language == "rw":
-        return f"{'Ohereza umurwayi ako kanya' if decision_value == 'REFER_URGENT' else 'Kurikiza gahunda yo kuvura'}: {diagnosis}."
+        return f"{'Ohereza umurwayi ako kanya' if urgent else 'Ohereza mu masaha 24' if routine else 'Kurikiza gahunda yo kuvura'}: {diagnosis}."
     if language == "ln":
-        return f"{'Tinda moto ya maladi sikoyo' if decision_value == 'REFER_URGENT' else 'Landa plan ya lisalisi'}: {diagnosis}."
-    return f"{'Refer now' if decision_value == 'REFER_URGENT' else 'Follow treatment plan'}: {diagnosis}."
+        return f"{'Tinda moto ya maladi sikoyo' if urgent else 'Tinda na kati ya ngonga 24' if routine else 'Landa plan ya lisalisi'}: {diagnosis}."
+    return f"{'Refer now' if urgent else 'Refer within 24 hours' if routine else 'Follow treatment plan'}: {diagnosis}."
 
 
 def generate_case(case_id: int, country: str, condition: str, rng: random.Random) -> dict[str, Any]:
     language = rng.choice(COUNTRY_LANGUAGES[country])
-    age_months = rng.randint(1, 180)
+    age_months = rng.randint(2, 59)
     age_years = max(1, round(age_months / 12))
-    weight = round(rng.uniform(4.5, 45.0), 1)
+    weight = child_weight_for_age(age_months, rng)
     sex = rng.choice(SEX)
     days = rng.randint(1, 7)
 
@@ -102,12 +122,12 @@ def generate_case(case_id: int, country: str, condition: str, rng: random.Random
         muac = round(rng.uniform(10.0, 12.4), 1)
         edema = rng.choice([True, False])
         symptom += f"MUAC {muac}cm. Bilateral edema: {'yes' if edema else 'no'}. Poor appetite for {days} days."
-        urgent = muac < 11.5 and edema
+        urgent = muac < 11.5 or edema
         expected = decision(
             "REFER_URGENT" if urgent else "TREAT",
             "Severe Acute Malnutrition with complications" if urgent else "Moderate or uncomplicated acute malnutrition",
             0.91,
-            ["MUAC below 11.5 cm", "bilateral edema"] if urgent else [],
+            [sign for sign, present in [("MUAC below 11.5 cm", muac < 11.5), ("bilateral edema", edema)] if present],
             language,
             ["Give RUTF only if alert and able to swallow", "Keep child warm"],
             "SAM danger signs. Needs therapeutic feeding facility.",

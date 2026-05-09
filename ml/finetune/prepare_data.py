@@ -58,6 +58,20 @@ SOURCES: dict[str, dict[str, Any]] = {
     },
 }
 
+VALID_DECISIONS = {"TREAT", "REFER_URGENT", "REFER_ROUTINE"}
+REQUIRED_SCHEMA_KEYS = {
+    "decision",
+    "primary_diagnosis",
+    "differential_diagnoses",
+    "confidence",
+    "treatment_protocol",
+    "referral",
+    "monitoring",
+    "danger_signs",
+    "reasoning_trace",
+    "voice_response",
+}
+
 
 def extract_pdf_text(path: Path) -> str:
     if pdfplumber is None:
@@ -105,20 +119,54 @@ def build_source_manifest(raw_dir: Path) -> dict[str, Any]:
     return manifest
 
 
+def validate_case_contract(cases: list[dict[str, Any]]) -> dict[str, Any]:
+    invalid: list[dict[str, Any]] = []
+    decision_counts = {decision: 0 for decision in sorted(VALID_DECISIONS)}
+    for case in cases:
+        expected = case.get("expected_decision") or {}
+        decision = expected.get("decision")
+        missing = sorted(REQUIRED_SCHEMA_KEYS.difference(expected))
+        if decision in decision_counts:
+            decision_counts[decision] += 1
+        if decision not in VALID_DECISIONS or missing:
+            invalid.append({
+                "case_id": case.get("id"),
+                "decision": decision,
+                "missing_schema_keys": missing,
+            })
+
+    if invalid:
+        preview = ", ".join(item["case_id"] or "unknown" for item in invalid[:10])
+        raise RuntimeError(
+            f"Training data contract failed for {len(invalid)} cases: {preview}. "
+            "Allowed decisions are TREAT, REFER_URGENT, REFER_ROUTINE and every "
+            "expected_decision must include the full SHIFA JSON schema."
+        )
+
+    return {
+        "valid_decisions": sorted(VALID_DECISIONS),
+        "decision_counts": decision_counts,
+        "schema_keys": sorted(REQUIRED_SCHEMA_KEYS),
+    }
+
+
 def main() -> None:
     raw_dir = resolve_path(env("SHIFA_RAW_DATA_DIR", "data/raw"))
     synthetic_file = env("SHIFA_SYNTHETIC_FILE", "data/processed/synthetic_cases_2000.jsonl")
     train_file = env("SHIFA_TRAIN_FILE", "data/processed/training_final.jsonl")
 
     cases = read_jsonl(synthetic_file)
+    contract = validate_case_contract(cases)
     training_rows = [to_training_pair(case) for case in cases]
     write_jsonl(train_file, training_rows)
 
     manifest = build_source_manifest(raw_dir)
     manifest["training_rows"] = len(training_rows)
     manifest["training_file"] = train_file
+    manifest["training_contract"] = contract
     write_json("data/processed/source_manifest.json", manifest)
     print(f"Training pairs: {len(training_rows)}")
+    print(f"Decision counts: {contract['decision_counts']}")
     print("Source manifest: data/processed/source_manifest.json")
 
 
