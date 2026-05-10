@@ -240,6 +240,20 @@ def score_case(pred: dict[str, Any], case: dict[str, Any]) -> dict[str, bool]:
     }
 
 
+def print_failure_detail(case: dict[str, Any], pred: dict[str, Any], result: dict[str, bool], inferred_decision: str, raw: str) -> None:
+    failed_keys = [key for key, passed in result.items() if not passed]
+    expected = case["expected_decision"]
+    print(f"      failed: {', '.join(failed_keys)}")
+    print(f"      expected: {expected.get('decision')} / {expected.get('primary_diagnosis')}")
+    print(f"      predicted: {pred.get('decision')} / {pred.get('primary_diagnosis')}")
+    print(f"      inferred: {inferred_decision}")
+    if pred.get("error"):
+        print(f"      error: {pred.get('error')}")
+    raw_preview = normalize_text(raw).replace("\n", " ")[:260]
+    if raw_preview:
+        print(f"      raw: {raw_preview}")
+
+
 def main() -> None:
     try:
         from unsloth import FastLanguageModel
@@ -261,6 +275,7 @@ def main() -> None:
     FastLanguageModel.for_inference(model)
 
     cases = read_jsonl(test_file)
+    verbose_failures = env("SHIFA_VERBOSE_FAILURES", "1") != "0"
     totals = {
         "decision_correct": 0,
         "decision_explicit": 0,
@@ -308,6 +323,8 @@ def main() -> None:
         print(f"[{i}/60] {status} {case['id']}")
 
         if not all(result.values()):
+            if verbose_failures:
+                print_failure_detail(case, pred, result, inferred_decision, raw)
             failures.append({
                 "case_id": case["id"],
                 "result": result,
@@ -344,7 +361,8 @@ def main() -> None:
             "urgent_recall": 0.95,
         },
         "passed_targets": {},
-        "failures": failures[:20],
+        "failure_count": len(failures),
+        "failures": failures,
     }
     metrics["passed_targets"] = {
         key: metrics[key] >= target for key, target in metrics["targets"].items()

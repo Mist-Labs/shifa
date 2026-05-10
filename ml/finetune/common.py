@@ -124,10 +124,15 @@ def to_training_pair(case: dict[str, Any]) -> dict[str, Any]:
 def extract_json_object(text: str) -> dict[str, Any]:
     fenced = re.search(r"```(?:json)?\s*([\s\S]*?)```", text, flags=re.IGNORECASE)
     candidate = fenced.group(1) if fenced else text
-    match = re.search(r"\{[\s\S]*\}", candidate)
-    if not match:
-        raise ValueError("No JSON object found in model output")
-    return json.loads(match.group(0))
+    decoder = json.JSONDecoder()
+    for match in re.finditer(r"\{", candidate):
+        try:
+            value, _ = decoder.raw_decode(candidate[match.start():])
+        except json.JSONDecodeError:
+            continue
+        if isinstance(value, dict):
+            return value
+    raise ValueError("No JSON object found in model output")
 
 
 def normalize_text(value: Any) -> str:
