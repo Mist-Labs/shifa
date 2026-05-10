@@ -20,6 +20,7 @@ DATA_ARTIFACTS = [
 
 MODEL_ARTIFACTS = [
     ("validation_metrics.json", "reports/validation_metrics.json"),
+    ("training_manifest.json", "reports/training_manifest.json"),
     ("shifa-gemma4-e4b-finetuned.tflite", "models/shifa-gemma4-e4b-finetuned.tflite"),
     ("models/shifa-gemma4-e4b-finetuned/chat_template.jinja", "models/shifa-gemma4-e4b-finetuned/chat_template.jinja"),
     ("models/shifa-gemma4-e4b-finetuned/README.md", "models/shifa-gemma4-e4b-finetuned/README.md"),

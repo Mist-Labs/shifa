@@ -40,6 +40,19 @@ def upload_file(client, bucket: str, path: Path, key: str) -> dict[str, str]:
     }
 
 
+def model_artifacts() -> list[tuple[Path, str]]:
+    model_dir = resolve_path(env("SHIFA_MODEL_DIR", "models/shifa-gemma4-e4b-finetuned"))
+    if not model_dir.exists():
+        return []
+
+    artifacts: list[tuple[Path, str]] = []
+    for path in sorted(model_dir.rglob("*")):
+        if path.is_file():
+            relative = path.relative_to(resolve_path("."))
+            artifacts.append((path, str(relative)))
+    return artifacts
+
+
 def main() -> None:
     config = required_r2_env()
     if not config:
@@ -65,6 +78,7 @@ def main() -> None:
         (resolve_path("data/processed/synthetic_cases_2000.jsonl"), "data/processed/synthetic_cases_2000.jsonl"),
         (resolve_path(env("SHIFA_LITERT_OUTPUT", "models/shifa-gemma4-e4b-finetuned.tflite")), "shifa-gemma4-e4b-finetuned.tflite"),
         (resolve_path(env("SHIFA_VALIDATION_REPORT", "reports/validation_metrics.json")), "validation_metrics.json"),
+        (resolve_path(env("SHIFA_TRAINING_MANIFEST", "reports/training_manifest.json")), "training_manifest.json"),
         (resolve_path(env("SHIFA_GUARD_PT_MODEL", "models/shifa-guard-weapon-detector/best.pt")), "guard/shifa-guard-weapon-detector.pt"),
         (resolve_path(env("SHIFA_GUARD_TFLITE_MODEL", "models/shifa-guard-weapon-detector/shifa-guard-weapon-detector.tflite")), "guard/shifa-guard-weapon-detector.tflite"),
         (resolve_path(env("SHIFA_GUARD_VALIDATION_REPORT", "reports/guard_validation_metrics.json")), "guard/validation_metrics.json"),
@@ -72,6 +86,7 @@ def main() -> None:
         (resolve_path("reports/guard_training_manifest.json"), "guard/training_manifest.json"),
         (resolve_path("data/processed/source_manifest.json"), "source_manifest.json"),
     ]
+    artifacts.extend(model_artifacts())
 
     uploaded = []
     for path, key in artifacts:

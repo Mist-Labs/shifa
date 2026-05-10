@@ -3,8 +3,32 @@ from __future__ import annotations
 import unsloth
 
 import os
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
 
-from common import env, env_float, env_int, resolve_path
+from common import env, env_float, env_int, resolve_path, write_json
+
+
+ML_ROOT = Path(__file__).resolve().parents[1]
+if str(ML_ROOT) not in sys.path:
+    sys.path.insert(0, str(ML_ROOT))
+
+
+def auto_upload_artifacts() -> None:
+    if env("SHIFA_AUTO_UPLOAD_AFTER_TRAIN", "1") == "0":
+        print("Auto-upload skipped: SHIFA_AUTO_UPLOAD_AFTER_TRAIN=0")
+        return
+
+    try:
+        from scripts.upload_artifacts import main as upload_artifacts
+
+        print("Uploading training artifacts to R2...")
+        upload_artifacts()
+        print("Training artifacts uploaded to R2.")
+    except Exception as exc:
+        print(f"Auto-upload failed after training: {exc}")
+        print("The model is saved locally. Run `python scripts/upload_artifacts.py` before restarting Kaggle.")
 
 
 def main() -> None:
@@ -83,10 +107,29 @@ def main() -> None:
         ),
     )
 
-    trainer.train()
+    train_result = trainer.train()
     model.save_pretrained(model_dir)
     tokenizer.save_pretrained(model_dir)
+    write_json(
+        env("SHIFA_TRAINING_MANIFEST", "reports/training_manifest.json"),
+        {
+            "completed_at": datetime.now(timezone.utc).isoformat(),
+            "base_model": base_model,
+            "train_file": train_file,
+            "model_dir": model_dir,
+            "checkpoint_dir": output_dir,
+            "max_seq_length": max_seq_length,
+            "epochs": env_int("SHIFA_NUM_EPOCHS", 3),
+            "batch_size": env_int("SHIFA_BATCH_SIZE", 2),
+            "gradient_accumulation_steps": env_int("SHIFA_GRAD_ACCUM", 4),
+            "learning_rate": env_float("SHIFA_LEARNING_RATE", 2e-4),
+            "lora_r": env_int("SHIFA_LORA_R", 16),
+            "lora_alpha": env_int("SHIFA_LORA_ALPHA", 16),
+            "metrics": train_result.metrics,
+        },
+    )
     print(f"Fine-tuning complete: {model_dir}")
+    auto_upload_artifacts()
 
 
 if __name__ == "__main__":
