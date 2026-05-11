@@ -14,7 +14,7 @@ Latest validation result:
 
 | Metric | Result | Target | Status |
 |---|---:|---:|---|
-| Decision accuracy, guarded | 88.3% | >88% | Pass |
+| Decision accuracy, guarded | 96.7% | >88% | Pass |
 | Urgent referral recall, guarded | 100.0% | >95% | Pass |
 | Urgent miss rate, guarded | 0.0% | 0% goal | Pass |
 | Drug dose accuracy | 100.0% | >95% | Pass |
@@ -23,7 +23,8 @@ Latest validation result:
 | Raw model decision accuracy | 73.3% | tracked | Needs guardrails |
 | Raw urgent recall | 79.1% | tracked | Needs guardrails |
 | Danger sign extraction | 88.3% | >92% | Next fix |
-| Over-referral rate | 41.2% | lower is better | Tune next |
+| Over-referral rate | 11.8% | lower is better | Improved |
+| Guardrail overrides | 49 / 60 | tracked | Safety layer active |
 
 The important safety claim is: **the trained model plus deterministic clinical guardrails reached 100% urgent referral recall with zero urgent misses on the current held-out validation set.** Do not present the raw model alone as the final clinical system.
 
@@ -44,6 +45,8 @@ Kaggle Tesla T4 x2 was the successful training environment. Colab's current torc
 ```
 
 `finetune_unsloth.py` writes `reports/training_manifest.json` and uploads the trained adapter artifacts to R2 when R2 credentials are present. Set `SHIFA_AUTO_UPLOAD_AFTER_TRAIN=0` only if you intentionally want to skip automatic upload.
+
+`validate.py` writes `reports/validation_metrics.json` and automatically uploads it to R2 at the end of validation when R2 credentials are present. Set `SHIFA_AUTO_UPLOAD_AFTER_VALIDATE=0` only if you intentionally want to skip automatic upload.
 
 To retrieve the latest trained model and manifests on a fresh Kaggle session:
 
@@ -102,15 +105,16 @@ Raw PDFs can be placed in `data/raw/`. The generator creates synthetic CHW cases
 - `models/shifa-gemma4-e4b-finetuned/`
 - `reports/training_manifest.json`
 - `reports/validation_metrics.json`
+- `reports/upload_manifest.json`
 - `models/shifa-gemma4-e4b-finetuned.tflite`
 
-The validation report is the source for the submission metrics table. Training and validation are complete for the adapter/guardrail milestone. Do not tick the mobile runtime checklist boxes until LiteRT export, APK integration, and physical-device airplane-mode inference are complete.
+The validation report is the source for the submission metrics table. Training and validation are complete for the adapter/guardrail milestone and the latest report has been uploaded to R2. Do not tick the mobile runtime checklist boxes until LiteRT export, APK integration, and physical-device airplane-mode inference are complete.
 
 ## Next Phase
 
-1. Upload the final `reports/validation_metrics.json` to R2 with `python scripts/upload_artifacts.py`.
-2. Add the validation table and safety-guardrail explanation to the hackathon write-up.
-3. Convert or package the trained adapter for the chosen mobile runtime path.
-4. Wire mobile inference to the local Gemma runtime plus the same deterministic guardrails.
-5. Improve danger-sign extraction above 92% by normalizing expected danger labels and prompting the model to emit canonical protocol danger signs.
-6. Reduce over-referral by adding more routine measles and uncomplicated-malnutrition examples, while preserving 100% urgent recall.
+1. Add the final validation table and safety-guardrail explanation to the hackathon write-up.
+2. Convert or package the trained adapter for the chosen mobile runtime path.
+3. Wire mobile inference to the local Gemma runtime plus the same deterministic guardrails.
+4. Improve danger-sign extraction above 92% by normalizing expected danger labels and prompting the model to emit canonical protocol danger signs.
+5. Audit the few remaining synthetic-label mismatches, especially uncomplicated malnutrition cases that mention bilateral edema.
+6. Keep the uploaded R2 artifacts as the reproducible evidence trail for training and validation.

@@ -16,8 +16,9 @@ Current ML validation standard:
 
 - Report the clinical model as a combined system: fine-tuned Gemma 4 E4B plus deterministic WHO/IMCI guardrails.
 - Keep raw model metrics separate from guarded clinical-safety metrics.
-- The current acceptable submission claim is 88.3% guarded decision accuracy, 100.0% urgent referral recall, and 0.0% urgent misses on the 60-case multilingual validation set.
+- The current acceptable submission claim is 96.7% guarded decision accuracy, 100.0% urgent referral recall, and 0.0% urgent misses on the 60-case multilingual validation set.
 - Do not claim full offline mobile readiness until LiteRT/mobile packaging, custom APK integration, and physical-device airplane-mode inference are complete.
 - Treat danger-sign extraction below target and high over-referral as next-phase safety/product work, not as reasons to bypass guardrails.
+- Preserve `training_manifest.json`, `validation_metrics.json`, and `upload_manifest.json` as the evidence trail for submitted model claims.
 
 This standard applies to backend, dashboard, and mobile work.

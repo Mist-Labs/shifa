@@ -36,4 +36,8 @@ ml/data/processed/extracted_sources/
 ml/data/guard/
 ml/reports/*.json
 !ml/reports/.gitkeep
+!ml/reports/download_manifest.json
+!ml/reports/training_manifest.json
+!ml/reports/upload_manifest.json
+!ml/reports/validation_metrics.json
 ml/TRAINING_AND_VALIDATION_PROCESS.md

@@ -1,0 +1,577 @@
+{
+  "case_count": 60,
+  "decision_accuracy": 0.9666666666666667,
+  "decision_explicit_rate": 0.9833333333333333,
+  "schema_complete_rate": 0.9833333333333333,
+  "danger_sign_accuracy": 0.8833333333333333,
+  "drug_dose_accuracy": 1.0,
+  "protocol_adherence": 1.0,
+  "raw_model_decision_accuracy": 0.7333333333333333,
+  "urgent_recall": 1.0,
+  "urgent_miss_rate": 0.0,
+  "raw_model_urgent_recall": 0.7906976744186046,
+  "raw_model_urgent_miss_rate": 0.20930232558139536,
+  "over_referral_rate": 0.11764705882352941,
+  "raw_model_over_referral_rate": 0.29411764705882354,
+  "guardrail_override_count": 49,
+  "guardrail_override_rate": 0.8166666666666667,
+  "safety_counts": {
+    "urgent_expected": 43,
+    "urgent_recalled": 43,
+    "urgent_missed": 0,
+    "raw_urgent_recalled": 34,
+    "raw_urgent_missed": 9,
+    "over_referral": 2,
+    "raw_over_referral": 5,
+    "guardrail_overrides": 49
+  },
+  "targets": {
+    "decision_accuracy": 0.88,
+    "danger_sign_accuracy": 0.92,
+    "drug_dose_accuracy": 0.95,
+    "protocol_adherence": 0.9,
+    "urgent_recall": 0.95
+  },
+  "passed_targets": {
+    "decision_accuracy": true,
+    "danger_sign_accuracy": false,
+    "drug_dose_accuracy": true,
+    "protocol_adherence": true,
+    "urgent_recall": true
+  },
+  "failure_count": 9,
+  "failures": [
+    {
+      "case_id": "synthetic-00309",
+      "result": {
+        "decision_correct": false,
+        "decision_explicit": true,
+        "schema_complete": true,
+        "danger_sign_correct": true,
+        "drug_dose_correct": true,
+        "protocol_adherence": true
+      },
+      "prediction": {
+        "decision": "REFER_ROUTINE",
+        "primary_diagnosis": "Acute phase of malnutrition (SAM)",
+        "differential_diagnoses": [
+          "Chronic malnutrition (MAM)",
+          "Poor appetite due to stress"
+        ],
+        "confidence": 0.9,
+        "treatment_protocol": null,
+        "referral": "Local health center or clinic",
+        "monitoring": "Regular check-ups at the health center",
+        "danger_signs": [
+          "Severe bilateral edema",
+          "Inability to eat for more than 1 week"
+        ],
+        "reasoning_trace": "Patient is SAM (Severe Acute Malnutrition) based on weight/MUAC, but lacks bilateral edema. Referral is routine for initial assessment and management plan.",
+        "voice_response": "يرجى التوجه إلى أقرب مركز صحي لتقييم الحالة ووضع خطة علاج مناسبة."
+      },
+      "inferred_decision": "REFER_ROUTINE",
+      "guarded_decision": "REFER_URGENT",
+      "override_reason": "Bilateral edema",
+      "expected": {
+        "decision": "TREAT",
+        "primary_diagnosis": "Moderate or uncomplicated acute malnutrition",
+        "differential_diagnoses": [],
+        "confidence": 0.91,
+        "treatment_protocol": {
+          "steps": [
+            "Give RUTF only if alert and able to swallow",
+            "Keep child warm"
+          ],
+          "drug_doses": [],
+          "follow_up_hours": 24,
+          "return_triggers": [
+            "danger sign appears",
+            "symptoms worsen",
+            "no improvement"
+          ]
+        },
+        "referral": null,
+        "monitoring": {
+          "watch_signs": [
+            "fever",
+            "poor feeding",
+            "breathing difficulty"
+          ],
+          "return_if": [
+            "danger sign appears",
+            "symptoms worsen"
+          ],
+          "home_care": [
+            "Give RUTF only if alert and able to swallow",
+            "Keep child warm"
+          ],
+          "recheck_hours": 24
+        },
+        "danger_signs": [],
+        "reasoning_trace": "Protocol-matched Moderate or uncomplicated acute malnutrition; safety overrides applied where required.",
+        "voice_response": "اتبع خطة العلاج: Moderate or uncomplicated acute malnutrition."
+      },
+      "raw_response": "{\n  \"decision\": \"REFER_ROUTINE\",\n  \"primary_diagnosis\": \"Acute phase of malnutrition (SAM)\",\n  \"differential_diagnoses\": [\n    \"Chronic malnutrition (MAM)\",\n    \"Poor appetite due to stress\"\n  ],\n  \"confidence\": 0.9,\n  \"treatment_protocol\": null,\n  \"referral\": \"Local health center or clinic\",\n  \"monitoring\": \"Regular check-ups at the health center\",\n  \"danger_signs\": [\n    \"Severe bilateral edema\",\n    \"Inability to eat for more than 1 week\"\n  ],\n  \"reasoning_trace\": \"Patient is SAM (Severe Acute Malnutrition) based on weight/MUAC, but lacks bilateral edema. Referral is routine for initial assessment and management plan.\",\n  \"voice_response\": \"يرجى التوجه إلى أقرب مركز صحي لتقييم الحالة ووضع خطة علاج مناسبة.\"\n}<end_of_turn><start_of_turn>model\n{\n  \"decision\": \"REFER_ROUTINE\",\n  \"primary_diagnosis\": \"Acute phase of malnutrition (SAM)\",\n  \"differential_diagnoses\": [\n    \"Chronic malnutrition (MAM)\",\n    \"Poor appetite due to stress\"\n  ],\n  \"confidence\": 0.9,\n  \"treatment_protocol\": null,\n  \"referral\": \"Local health center or clinic\",\n  \"monitoring\": \"Regular check-ups at the health center\",\n  \"danger_signs\": [\n    \"Severe bilateral edema\",\n    \"Inability to eat for more than 1 week\"\n  ],\n  \"reasoning_trace\": \"Patient is SAM (Severe Acute Malnutrition) based on weight/MUAC, but lacks bilateral edema. Referral is routine for initial assessment and management plan.\",\n  \"voice_response\": \"يرجى التوجه إلى أقرب مركز صحي لتقييم الحالة ووضع خطة علاج مناسبة.\"\n}<end_of_turn><start_of_turn>model\n{\n  \"decision\": \"REFER_ROUTINE\",\n  \"primary_diagnosis\": \"Acute phase of malnutrition (SAM)\",\n  \"differential_diagnoses\": [\n    \"Chronic malnutrition (MAM)\",\n    \"Poor appetite due to stress\"\n  ],\n  \"confidence\": 0.9,\n  \"treatment_protocol\": null,\n  \"referral\": \"Local health center or clinic\",\n  \"monitoring\": \"Regular check-ups at the health center\",\n  \"danger_signs\": [\n    \"Severe bilateral edema\",\n    \"Inability to eat for more than 1 week\"\n  ],\n  \"reasoning_trace\": \"Patient is SAM (Sev"
+    },
+    {
+      "case_id": "synthetic-00113",
+      "result": {
+        "decision_correct": false,
+        "decision_explicit": true,
+        "schema_complete": true,
+        "danger_sign_correct": true,
+        "drug_dose_correct": true,
+        "protocol_adherence": true
+      },
+      "prediction": {
+        "decision": "REFER_ROUTINE",
+        "primary_diagnosis": "Poor Appetite",
+        "differential_diagnoses": [
+          "Mild Stress",
+          "Minor Illness"
+        ],
+        "confidence": 0.8,
+        "treatment_protocol": null,
+        "referral": null,
+        "monitoring": null,
+        "danger_signs": [],
+        "reasoning_trace": "Patient presents with poor appetite for 1 day. No signs of severe illness or edema. Referral is routine for appetite issues.",
+        "voice_response": "يرجى ملاحظة أن فقدان الشهية لمدة يوم واحد لا يعتبر حالة طارئة. يمكن متابعته بشكل روتيني."
+      },
+      "inferred_decision": "REFER_ROUTINE",
+      "guarded_decision": "REFER_URGENT",
+      "override_reason": "Bilateral edema",
+      "expected": {
+        "decision": "TREAT",
+        "primary_diagnosis": "Moderate or uncomplicated acute malnutrition",
+        "differential_diagnoses": [],
+        "confidence": 0.91,
+        "treatment_protocol": {
+          "steps": [
+            "Give RUTF only if alert and able to swallow",
+            "Keep child warm"
+          ],
+          "drug_doses": [],
+          "follow_up_hours": 24,
+          "return_triggers": [
+            "danger sign appears",
+            "symptoms worsen",
+            "no improvement"
+          ]
+        },
+        "referral": null,
+        "monitoring": {
+          "watch_signs": [
+            "fever",
+            "poor feeding",
+            "breathing difficulty"
+          ],
+          "return_if": [
+            "danger sign appears",
+            "symptoms worsen"
+          ],
+          "home_care": [
+            "Give RUTF only if alert and able to swallow",
+            "Keep child warm"
+          ],
+          "recheck_hours": 24
+        },
+        "danger_signs": [],
+        "reasoning_trace": "Protocol-matched Moderate or uncomplicated acute malnutrition; safety overrides applied where required.",
+        "voice_response": "اتبع خطة العلاج: Moderate or uncomplicated acute malnutrition."
+      },
+      "raw_response": "{\n  \"decision\": \"REFER_ROUTINE\",\n  \"primary_diagnosis\": \"Poor Appetite\",\n  \"differential_diagnoses\": [\n    \"Mild Stress\",\n    \"Minor Illness\"\n  ],\n  \"confidence\": 0.8,\n  \"treatment_protocol\": null,\n  \"referral\": null,\n  \"monitoring\": null,\n  \"danger_signs\": [],\n  \"reasoning_trace\": \"Patient presents with poor appetite for 1 day. No signs of severe illness or edema. Referral is routine for appetite issues.\",\n  \"voice_response\": \"يرجى ملاحظة أن فقدان الشهية لمدة يوم واحد لا يعتبر حالة طارئة. يمكن متابعته بشكل روتيني.\"\n}<end_of_turn><start_of_turn>model\n{\n  \"decision\": \"REFER_ROUTINE\",\n  \"primary_diagnosis\": \"Poor Appetite\",\n  \"differential_diagnoses\": [\n    \"Mild Stress\",\n    \"Minor Illness\"\n  ],\n  \"confidence\": 0.8,\n  \"treatment_protocol\": null,\n  \"referral\": null,\n  \"monitoring\": null,\n  \"danger_signs\": [],\n  \"reasoning_trace\": \"Patient presents with poor appetite for 1 day. No signs of severe illness or edema. Referral is routine for appetite issues.\",\n  \"voice_response\": \"يرجى ملاحظة أن فقدان الشهية لمدة يوم واحد لا يعتبر حالة طارئة. يمكن متابعته بشكل روتيني.\"\n}<end_of_turn><start_of_turn>model\n{\n  \"decision\": \"REFER_ROUTINE\",\n  \"primary_diagnosis\": \"Poor Appetite\",\n  \"differential_diagnoses\": [\n    \"Mild Stress\",\n    \"Minor Illness\"\n  ],\n  \"confidence\": 0.8,\n  \"treatment_protocol\": null,\n  \"referral\": null,\n  \"monitoring\": null,\n  \"danger_signs\": [],\n  \"reasoning_trace\": \"Patient presents with poor appetite for 1 day. No signs of severe illness or edema. Referral is routine for appetite issues.\",\n  \"voice_response\": \"يرجى ملاحظة أن فقدان الشهية لمدة يوم واحد لا يعتبر حالة طارئة. يمكن متابعته بشكل روتيني.\"\n}<end_of_turn><start_of_turn>model\n{\n  \"decision\": \"REFER_ROUTINE\",\n  \"primary_diagnosis\": \"Poor Appetite\",\n  \"differential_diagnoses\": [\n    \"Mild Stress\",\n    \"Minor Illness\"\n  ],\n  \"confidence\": 0.8,\n  \"treatment_protocol\": null,\n  \"referral\": null,\n  \"monitoring\": null,\n  \"danger_signs\": [],\n  \"reasoning_trace\": \"Patient presents with poor appetite for 1 day"
+    },
+    {
+      "case_id": "synthetic-01737",
+      "result": {
+        "decision_correct": true,
+        "decision_explicit": true,
+        "schema_complete": true,
+        "danger_sign_correct": false,
+        "drug_dose_correct": true,
+        "protocol_adherence": true
+      },
+      "prediction": {
+        "decision": "REFER_ROUTINE",
+        "primary_diagnosis": "Poor Appetite",
+        "differential_diagnoses": [
+          "Mild Stress",
+          "Minor Illness"
+        ],
+        "confidence": 0.8,
+        "treatment_protocol": null,
+        "referral": null,
+        "monitoring": null,
+        "danger_signs": [],
+        "reasoning_trace": "Patient is 28 months, weight 15.5kg. No bilateral edema. Poor appetite for 2 days. This is a non-acute, manageable issue.",
+        "voice_response": "يرجى ملاحظة أن هذا الأمر يمكن إدارته بشكل روتيني."
+      },
+      "inferred_decision": "REFER_ROUTINE",
+      "guarded_decision": "REFER_URGENT",
+      "override_reason": "MUAC 10.8cm < 11.5cm",
+      "expected": {
+        "decision": "REFER_URGENT",
+        "primary_diagnosis": "Severe Acute Malnutrition with complications",
+        "differential_diagnoses": [],
+        "confidence": 0.91,
+        "treatment_protocol": null,
+        "referral": {
+          "urgency": "IMMEDIATE",
+          "facility_type": "nearest hospital or protocol referral facility",
+          "pre_referral_treatment": [
+            "Give RUTF only if alert and able to swallow",
+            "Keep child warm"
+          ],
+          "message_for_facility": "SAM danger signs. Needs therapeutic feeding facility.",
+          "danger_signs_en_route": [
+            "MUAC below 11.5 cm"
+          ]
+        },
+        "monitoring": null,
+        "danger_signs": [
+          "MUAC below 11.5 cm"
+        ],
+        "reasoning_trace": "Protocol-matched Severe Acute Malnutrition with complications; safety overrides applied where required.",
+        "voice_response": "حوّل المريض الآن: Severe Acute Malnutrition with complications."
+      },
+      "raw_response": "{\n  \"decision\": \"REFER_ROUTINE\",\n  \"primary_diagnosis\": \"Poor Appetite\",\n  \"differential_diagnoses\": [\n    \"Mild Stress\",\n    \"Minor Illness\"\n  ],\n  \"confidence\": 0.8,\n  \"treatment_protocol\": null,\n  \"referral\": null,\n  \"monitoring\": null,\n  \"danger_signs\": [],\n  \"reasoning_trace\": \"Patient is 28 months, weight 15.5kg. No bilateral edema. Poor appetite for 2 days. This is a non-acute, manageable issue.\",\n  \"voice_response\": \"يرجى ملاحظة أن هذا الأمر يمكن إدارته بشكل روتيني.\"\n}<end_of_turn><start_of_turn>model\n{\n  \"decision\": \"REFER_ROUTINE\",\n  \"primary_diagnosis\": \"Poor Appetite\",\n  \"differential_diagnoses\": [\n    \"Mild Stress\",\n    \"Minor Illness\"\n  ],\n  \"confidence\": 0.8,\n  \"treatment_protocol\": null,\n  \"referral\": null,\n  \"monitoring\": null,\n  \"danger_signs\": [],\n  \"reasoning_trace\": \"Patient is 28 months, weight 15.5kg. No bilateral edema. Poor appetite for 2 days. This is a non-acute, manageable issue.\",\n  \"voice_response\": \"يرجى ملاحظة أن هذا الأمر يمكن إدارته بشكل روتيني.\"\n}<end_of_turn><start_of_turn>model\n{\n  \"decision\": \"REFER_ROUTINE\",\n  \"primary_diagnosis\": \"Poor Appetite\",\n  \"differential_diagnoses\": [\n    \"Mild Stress\",\n    \"Minor Illness\"\n  ],\n  \"confidence\": 0.8,\n  \"treatment_protocol\": null,\n  \"referral\": null,\n  \"monitoring\": null,\n  \"danger_signs\": [],\n  \"reasoning_trace\": \"Patient is 28 months, weight 15.5kg. No bilateral edema. Poor appetite for 2 days. This is a non-acute, manageable issue.\",\n  \"voice_response\": \"يرجى ملاحظة أن هذا الأمر يمكن إدارته بشكل روتيني.\"\n}<end_of_turn><start_of_turn>model\n{\n  \"decision\": \"REFER_ROUTINE\",\n  \"primary_diagnosis\": \"Poor Appetite\",\n  \"differential_diagnoses\": [\n    \"Mild Stress\",\n    \"Minor Illness\"\n  ],\n  \"confidence\": 0.8,\n  \"treatment_protocol\": null,\n  \"referral\": null,\n  \"monitoring\": null,\n  \"danger_signs\": [],\n  \"reasoning_trace\": \"Patient is 28 months, weight 15.5kg. No bilateral edema. Poor appetite for 2 days. This is a non-acute, manageable issue.\",\n  \"voice_response\": \"يرجى ملاحظة أن هذا الأمر ي"
+    },
+    {
+      "case_id": "synthetic-01214",
+      "result": {
+        "decision_correct": true,
+        "decision_explicit": true,
+        "schema_complete": true,
+        "danger_sign_correct": false,
+        "drug_dose_correct": true,
+        "protocol_adherence": true
+      },
+      "prediction": {
+        "decision": "REFER_ROUTINE",
+        "primary_diagnosis": "Mild/Moderate Acute Phase Malnutrition (APM)",
+        "differential_diagnoses": [
+          "Mild/Moderate Chronic Phase Malnutrition (CPM)",
+          "Stress Malnutrition"
+        ],
+        "confidence": 0.85,
+        "treatment_protocol": "REFER_ROUTINE",
+        "referral": "Local Health Center/Nutrition Clinic",
+        "monitoring": "Weekly for 4 weeks",
+        "danger_signs": [
+          "Severe bilateral edema",
+          "Weight loss > 10% in 4 weeks",
+          "MUAC < 10cm"
+        ],
+        "reasoning_trace": "APM identified based on weight/MUAC. Edema absent, ruling out severe acute phase. Referral routine for initial assessment and management plan.",
+        "voice_response": "Please visit the local Health Center/Nutrition Clinic for a routine assessment and management plan."
+      },
+      "inferred_decision": "REFER_ROUTINE",
+      "guarded_decision": "REFER_URGENT",
+      "override_reason": "MUAC 10.8cm < 11.5cm",
+      "expected": {
+        "decision": "REFER_URGENT",
+        "primary_diagnosis": "Severe Acute Malnutrition with complications",
+        "differential_diagnoses": [],
+        "confidence": 0.91,
+        "treatment_protocol": null,
+        "referral": {
+          "urgency": "IMMEDIATE",
+          "facility_type": "nearest hospital or protocol referral facility",
+          "pre_referral_treatment": [
+            "Give RUTF only if alert and able to swallow",
+            "Keep child warm"
+          ],
+          "message_for_facility": "SAM danger signs. Needs therapeutic feeding facility.",
+          "danger_signs_en_route": [
+            "MUAC below 11.5 cm"
+          ]
+        },
+        "monitoring": null,
+        "danger_signs": [
+          "MUAC below 11.5 cm"
+        ],
+        "reasoning_trace": "Protocol-matched Severe Acute Malnutrition with complications; safety overrides applied where required.",
+        "voice_response": "Ohereza umurwayi ako kanya: Severe Acute Malnutrition with complications."
+      },
+      "raw_response": "{\n  \"decision\": \"REFER_ROUTINE\",\n  \"primary_diagnosis\": \"Mild/Moderate Acute Phase Malnutrition (APM)\",\n  \"differential_diagnoses\": [\n    \"Mild/Moderate Chronic Phase Malnutrition (CPM)\",\n    \"Stress Malnutrition\"\n  ],\n  \"confidence\": 0.85,\n  \"treatment_protocol\": \"REFER_ROUTINE\",\n  \"referral\": \"Local Health Center/Nutrition Clinic\",\n  \"monitoring\": \"Weekly for 4 weeks\",\n  \"danger_signs\": [\n    \"Severe bilateral edema\",\n    \"Weight loss > 10% in 4 weeks\",\n    \"MUAC < 10cm\"\n  ],\n  \"reasoning_trace\": \"APM identified based on weight/MUAC. Edema absent, ruling out severe acute phase. Referral routine for initial assessment and management plan.\",\n  \"voice_response\": \"Please visit the local Health Center/Nutrition Clinic for a routine assessment and management plan.\"\n}<end_of_turn><start_of_turn>model\n{\n  \"decision\": \"REFER_ROUTINE\",\n  \"primary_diagnosis\": \"Mild/Moderate Acute Phase Malnutrition (APM)\",\n  \"differential_diagnoses\": [\n    \"Mild/Moderate Chronic Phase Malnutrition (CPM)\",\n    \"Stress Malnutrition\"\n  ],\n  \"confidence\": 0.85,\n  \"treatment_protocol\": \"REFER_ROUTINE\",\n  \"referral\": \"Local Health Center/Nutrition Clinic\",\n  \"monitoring\": \"Weekly for 4 weeks\",\n  \"danger_signs\": [\n    \"Severe bilateral edema\",\n    \"Weight loss > 10% in 4 weeks\",\n    \"MUAC < 10cm\"\n  ],\n  \"reasoning_trace\": \"APM identified based on weight/MUAC. Edema absent, ruling out severe acute phase. Referral routine for initial assessment and management plan.\",\n  \"voice_response\": \"Please visit the local Health Center/Nutrition Clinic for a routine assessment and management plan.\"\n}<end_of_turn><start_of_turn>model\n{\n  \"decision\": \"REFER_ROUTINE\",\n  \"primary_diagnosis\": \"Mild/Moderate Acute Phase Malnutrition (APM)\",\n  \"differential_diagnoses\": [\n    \"Mild/Moderate Chronic Phase Malnutrition (CPM)\",\n    \"Stress Malnutrition\"\n  ],\n  \"confidence\": 0.85,\n  \"treatment_protocol\": \"REFER_ROUTINE\",\n  \"referral\": \"Local Health Center/Nutrition Clinic\",\n  \"monitoring\": \"Weekly for 4 weeks\",\n  \"danger_si"
+    },
+    {
+      "case_id": "synthetic-01858",
+      "result": {
+        "decision_correct": true,
+        "decision_explicit": true,
+        "schema_complete": true,
+        "danger_sign_correct": false,
+        "drug_dose_correct": true,
+        "protocol_adherence": true
+      },
+      "prediction": {
+        "decision": "REFER_ROUTINE",
+        "primary_diagnosis": "Poor Appetite",
+        "differential_diagnoses": [
+          "Mild Nutritional Status",
+          "Stress/Anxiety"
+        ],
+        "confidence": 0.85,
+        "treatment_protocol": null,
+        "referral": "Consult a general practitioner for a full assessment and advice on appetite.",
+        "monitoring": null,
+        "danger_signs": [
+          "Bilateral Edema",
+          "Severe Weight Loss"
+        ],
+        "reasoning_trace": "Patient is 29 months, weight 13.9kg, MUAC 11.0cm. No edema. Poor appetite for 5 days. This requires a routine consultation to assess the cause and provide advice.",
+        "voice_response": "Maman, wapi na ngai? Ndenge ya ngai na wapi? Ndenge ya ngai na wapi? Ndenge ya ngai na wapi?"
+      },
+      "inferred_decision": "REFER_ROUTINE",
+      "guarded_decision": "REFER_URGENT",
+      "override_reason": "MUAC 11.0cm < 11.5cm",
+      "expected": {
+        "decision": "REFER_URGENT",
+        "primary_diagnosis": "Severe Acute Malnutrition with complications",
+        "differential_diagnoses": [],
+        "confidence": 0.91,
+        "treatment_protocol": null,
+        "referral": {
+          "urgency": "IMMEDIATE",
+          "facility_type": "nearest hospital or protocol referral facility",
+          "pre_referral_treatment": [
+            "Give RUTF only if alert and able to swallow",
+            "Keep child warm"
+          ],
+          "message_for_facility": "SAM danger signs. Needs therapeutic feeding facility.",
+          "danger_signs_en_route": [
+            "MUAC below 11.5 cm"
+          ]
+        },
+        "monitoring": null,
+        "danger_signs": [
+          "MUAC below 11.5 cm"
+        ],
+        "reasoning_trace": "Protocol-matched Severe Acute Malnutrition with complications; safety overrides applied where required.",
+        "voice_response": "Tinda moto ya maladi sikoyo: Severe Acute Malnutrition with complications."
+      },
+      "raw_response": "{\n  \"decision\": \"REFER_ROUTINE\",\n  \"primary_diagnosis\": \"Poor Appetite\",\n  \"differential_diagnoses\": [\n    \"Mild Nutritional Status\",\n    \"Stress/Anxiety\"\n  ],\n  \"confidence\": 0.85,\n  \"treatment_protocol\": null,\n  \"referral\": \"Consult a general practitioner for a full assessment and advice on appetite.\",\n  \"monitoring\": null,\n  \"danger_signs\": [\n    \"Bilateral Edema\",\n    \"Severe Weight Loss\"\n  ],\n  \"reasoning_trace\": \"Patient is 29 months, weight 13.9kg, MUAC 11.0cm. No edema. Poor appetite for 5 days. This requires a routine consultation to assess the cause and provide advice.\",\n  \"voice_response\": \"Maman, wapi na ngai? Ndenge ya ngai na wapi? Ndenge ya ngai na wapi? Ndenge ya ngai na wapi?\"\n}<end_of_turn><start_of_turn>model\n{\n  \"decision\": \"REFER_ROUTINE\",\n  \"primary_diagnosis\": \"Poor Appetite\",\n  \"differential_diagnoses\": [\n    \"Mild Nutritional Status\",\n    \"Stress/Anxiety\"\n  ],\n  \"confidence\": 0.85,\n  \"treatment_protocol\": null,\n  \"referral\": \"Consult a general practitioner for a full assessment and advice on appetite.\",\n  \"monitoring\": null,\n  \"danger_signs\": [\n    \"Bilateral Edema\",\n    \"Severe Weight Loss\"\n  ],\n  \"reasoning_trace\": \"Patient is 29 months, weight 13.9kg, MUAC 11.0cm. No edema. Poor appetite for 5 days. This requires a routine consultation to assess the cause and provide advice.\",\n  \"voice_response\": \"Maman, wapi na ngai? Ndenge ya ngai na wapi? Ndenge ya ngai na wapi? Ndenge ya ngai na wapi?\"\n}<end_of_turn><start_of_turn>model\n{\n  \"decision\": \"REFER_ROUTINE\",\n  \"primary_diagnosis\": \"Poor Appetite\",\n  \"differential_diagnoses\": [\n    \"Mild Nutritional Status\",\n    \"Stress/Anxiety\"\n  ],\n  \"confidence\": 0.85,\n  \"treatment_protocol\": null,\n  \"referral\": \"Consult a general practitioner for a full assessment and advice on appetite.\",\n  \"monitoring\": null,\n  \"danger_signs\": [\n    \"Bilateral Edema\",\n    \"Severe Weight Loss\"\n  ],\n  \"reasoning_trace\": \"Patient is 29 months, weight 13.9kg, MUAC 11.0cm. No edema. Poor appetite for 5 days. This requires a"
+    },
+    {
+      "case_id": "synthetic-01534",
+      "result": {
+        "decision_correct": true,
+        "decision_explicit": false,
+        "schema_complete": false,
+        "danger_sign_correct": false,
+        "drug_dose_correct": true,
+        "protocol_adherence": true
+      },
+      "prediction": {
+        "error": "No JSON object found in model output",
+        "raw_response": "{\n  \"decision\": \"REFER_URGENT\",\n  \"primary_diagnosis\": \"Suspected Severe Pneumonia\",\n  \"differential_diagnoses\": [\n    \"Severe Bronchitis\",\n    \"Pneumonia (non-severe)\"\n  ],\n  \"confidence\": 0.95,\n  \"treatment_protocol\": null,\n  \"referral\": \"Hospital or Clinic with Emergency Services\",\n  \"monitoring\": null,\n  \"danger_signs\": [\n    \"Severe chest indrawing\"\n  ],\n  \"reasoning_trace\": \"Patient presents with signs of severe respiratory distress (severe chest indrawing) and symptoms of pneumonia. Immediate assessment and management are required.\",\n  \"voice_response\": \"Kweleka! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya"
+      },
+      "inferred_decision": "REFER_URGENT",
+      "guarded_decision": "REFER_URGENT",
+      "override_reason": "Severe chest indrawing",
+      "expected": {
+        "decision": "REFER_URGENT",
+        "primary_diagnosis": "Severe pneumonia",
+        "differential_diagnoses": [],
+        "confidence": 0.86,
+        "treatment_protocol": null,
+        "referral": {
+          "urgency": "IMMEDIATE",
+          "facility_type": "nearest hospital or protocol referral facility",
+          "pre_referral_treatment": [
+            "Count respiratory rate",
+            "Give amoxicillin only with age and weight confirmed"
+          ],
+          "message_for_facility": "Severe respiratory danger sign.",
+          "danger_signs_en_route": [
+            "severe chest indrawing"
+          ]
+        },
+        "monitoring": null,
+        "danger_signs": [
+          "severe chest indrawing"
+        ],
+        "reasoning_trace": "Protocol-matched Severe pneumonia; safety overrides applied where required.",
+        "voice_response": "Tinda moto ya maladi sikoyo: Severe pneumonia."
+      },
+      "raw_response": "{\n  \"decision\": \"REFER_URGENT\",\n  \"primary_diagnosis\": \"Suspected Severe Pneumonia\",\n  \"differential_diagnoses\": [\n    \"Severe Bronchitis\",\n    \"Pneumonia (non-severe)\"\n  ],\n  \"confidence\": 0.95,\n  \"treatment_protocol\": null,\n  \"referral\": \"Hospital or Clinic with Emergency Services\",\n  \"monitoring\": null,\n  \"danger_signs\": [\n    \"Severe chest indrawing\"\n  ],\n  \"reasoning_trace\": \"Patient presents with signs of severe respiratory distress (severe chest indrawing) and symptoms of pneumonia. Immediate assessment and management are required.\",\n  \"voice_response\": \"Kweleka! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya to! Moko ya"
+    },
+    {
+      "case_id": "synthetic-01046",
+      "result": {
+        "decision_correct": true,
+        "decision_explicit": true,
+        "schema_complete": true,
+        "danger_sign_correct": false,
+        "drug_dose_correct": true,
+        "protocol_adherence": true
+      },
+      "prediction": {
+        "decision": "REFER_ROUTINE",
+        "primary_diagnosis": "Mild/Moderate Acute Phase Malnutrition (APM)",
+        "differential_diagnoses": [
+          "Mild/Moderate Chronic Phase Malnutrition (CPM)",
+          "Stress/Appetite Loss"
+        ],
+        "confidence": 0.85,
+        "treatment_protocol": "Referral for Nutritional Assessment and Counseling",
+        "referral": "Local Health Center/Nutritionist",
+        "monitoring": "Appetite and Weight for 2 weeks",
+        "danger_signs": [
+          "Severe bilateral edema",
+          "Inability to drink"
+        ],
+        "reasoning_trace": "APM identified based on weight/MUAC. Edema absent. Appetite loss mild. Referral for assessment and counseling recommended.",
+        "voice_response": "Please visit the local health center for a full nutritional assessment and counseling."
+      },
+      "inferred_decision": "REFER_ROUTINE",
+      "guarded_decision": "REFER_URGENT",
+      "override_reason": "MUAC 10.8cm < 11.5cm",
+      "expected": {
+        "decision": "REFER_URGENT",
+        "primary_diagnosis": "Severe Acute Malnutrition with complications",
+        "differential_diagnoses": [],
+        "confidence": 0.91,
+        "treatment_protocol": null,
+        "referral": {
+          "urgency": "IMMEDIATE",
+          "facility_type": "nearest hospital or protocol referral facility",
+          "pre_referral_treatment": [
+            "Give RUTF only if alert and able to swallow",
+            "Keep child warm"
+          ],
+          "message_for_facility": "SAM danger signs. Needs therapeutic feeding facility.",
+          "danger_signs_en_route": [
+            "MUAC below 11.5 cm"
+          ]
+        },
+        "monitoring": null,
+        "danger_signs": [
+          "MUAC below 11.5 cm"
+        ],
+        "reasoning_trace": "Protocol-matched Severe Acute Malnutrition with complications; safety overrides applied where required.",
+        "voice_response": "Ohereza umurwayi ako kanya: Severe Acute Malnutrition with complications."
+      },
+      "raw_response": "{\n  \"decision\": \"REFER_ROUTINE\",\n  \"primary_diagnosis\": \"Mild/Moderate Acute Phase Malnutrition (APM)\",\n  \"differential_diagnoses\": [\n    \"Mild/Moderate Chronic Phase Malnutrition (CPM)\",\n    \"Stress/Appetite Loss\"\n  ],\n  \"confidence\": 0.85,\n  \"treatment_protocol\": \"Referral for Nutritional Assessment and Counseling\",\n  \"referral\": \"Local Health Center/Nutritionist\",\n  \"monitoring\": \"Appetite and Weight for 2 weeks\",\n  \"danger_signs\": [\n    \"Severe bilateral edema\",\n    \"Inability to drink\"\n  ],\n  \"reasoning_trace\": \"APM identified based on weight/MUAC. Edema absent. Appetite loss mild. Referral for assessment and counseling recommended.\",\n  \"voice_response\": \"Please visit the local health center for a full nutritional assessment and counseling.\"\n}<end_of_turn><start_of_turn>model\n{\n  \"decision\": \"REFER_ROUTINE\",\n  \"primary_diagnosis\": \"Mild/Moderate Acute Phase Malnutrition (APM)\",\n  \"differential_diagnoses\": [\n    \"Mild/Moderate Chronic Phase Malnutrition (CPM)\",\n    \"Stress/Appetite Loss\"\n  ],\n  \"confidence\": 0.85,\n  \"treatment_protocol\": \"Referral for Nutritional Assessment and Counseling\",\n  \"referral\": \"Local Health Center/Nutritionist\",\n  \"monitoring\": \"Appetite and Weight for 2 weeks\",\n  \"danger_signs\": [\n    \"Severe bilateral edema\",\n    \"Inability to drink\"\n  ],\n  \"reasoning_trace\": \"APM identified based on weight/MUAC. Edema absent. Appetite loss mild. Referral for assessment and counseling recommended.\",\n  \"voice_response\": \"Please visit the local health center for a full nutritional assessment and counseling.\"\n}<end_of_turn><start_of_turn>model\n{\n  \"decision\": \"REFER_ROUTINE\",\n  \"primary_diagnosis\": \"Mild/Moderate Acute Phase Malnutrition (APM)\",\n  \"differential_diagnoses\": [\n    \"Mild/Moderate Chronic Phase Malnutrition (CPM)\",\n    \"Stress/Appetite Loss\"\n  ],\n  \"confidence\": 0.85,\n  \"treatment_protocol\": \"Referral for Nutritional Assessment and Counseling\",\n  \"referral\": \"Local Health Center/Nutritionist\",\n  \"monitoring\": \"Appetite and Weight for 2 wee"
+    },
+    {
+      "case_id": "synthetic-00792",
+      "result": {
+        "decision_correct": true,
+        "decision_explicit": true,
+        "schema_complete": true,
+        "danger_sign_correct": false,
+        "drug_dose_correct": true,
+        "protocol_adherence": true
+      },
+      "prediction": {
+        "decision": "REFER_ROUTINE",
+        "primary_diagnosis": "Poor Appetite / Mild Nutritional Concern",
+        "differential_diagnoses": [
+          "Mild Nutritional Concern",
+          "Stress/Anxiety"
+        ],
+        "confidence": 0.85,
+        "treatment_protocol": null,
+        "referral": null,
+        "monitoring": null,
+        "danger_signs": [
+          "Bilateral Edema",
+          "Weight Loss"
+        ],
+        "reasoning_trace": "Patient is 13 months, weight 8.9kg. MUAC 10.6cm. No bilateral edema. Poor appetite for 6 days. This suggests mild nutritional concern, not acute severe malnutrition. Referral is routine for dietary advice and monitoring.",
+        "voice_response": "Sannu. Your child needs routine dietary advice and monitoring. Please schedule a visit."
+      },
+      "inferred_decision": "REFER_ROUTINE",
+      "guarded_decision": "REFER_URGENT",
+      "override_reason": "MUAC 10.6cm < 11.5cm",
+      "expected": {
+        "decision": "REFER_URGENT",
+        "primary_diagnosis": "Severe Acute Malnutrition with complications",
+        "differential_diagnoses": [],
+        "confidence": 0.91,
+        "treatment_protocol": null,
+        "referral": {
+          "urgency": "IMMEDIATE",
+          "facility_type": "nearest hospital or protocol referral facility",
+          "pre_referral_treatment": [
+            "Give RUTF only if alert and able to swallow",
+            "Keep child warm"
+          ],
+          "message_for_facility": "SAM danger signs. Needs therapeutic feeding facility.",
+          "danger_signs_en_route": [
+            "MUAC below 11.5 cm"
+          ]
+        },
+        "monitoring": null,
+        "danger_signs": [
+          "MUAC below 11.5 cm"
+        ],
+        "reasoning_trace": "Protocol-matched Severe Acute Malnutrition with complications; safety overrides applied where required.",
+        "voice_response": "A tura mara lafiya yanzu: Severe Acute Malnutrition with complications."
+      },
+      "raw_response": "{\n  \"decision\": \"REFER_ROUTINE\",\n  \"primary_diagnosis\": \"Poor Appetite / Mild Nutritional Concern\",\n  \"differential_diagnoses\": [\n    \"Mild Nutritional Concern\",\n    \"Stress/Anxiety\"\n  ],\n  \"confidence\": 0.85,\n  \"treatment_protocol\": null,\n  \"referral\": null,\n  \"monitoring\": null,\n  \"danger_signs\": [\n    \"Bilateral Edema\",\n    \"Weight Loss\"\n  ],\n  \"reasoning_trace\": \"Patient is 13 months, weight 8.9kg. MUAC 10.6cm. No bilateral edema. Poor appetite for 6 days. This suggests mild nutritional concern, not acute severe malnutrition. Referral is routine for dietary advice and monitoring.\",\n  \"voice_response\": \"Sannu. Your child needs routine dietary advice and monitoring. Please schedule a visit.\"\n}<end_of_turn><start_of_turn>model\n{\n  \"decision\": \"REFER_ROUTINE\",\n  \"primary_diagnosis\": \"Poor Appetite / Mild Nutritional Concern\",\n  \"differential_diagnoses\": [\n    \"Stress/Anxiety\",\n    \"Mild Nutritional Concern\"\n  ],\n  \"confidence\": 0.85,\n  \"treatment_protocol\": null,\n  \"referral\": null,\n  \"monitoring\": null,\n  \"danger_signs\": [\n    \"Bilateral Edema\",\n    \"Weight Loss\"\n  ],\n  \"reasoning_trace\": \"Patient is 13 months, weight 8.9kg. MUAC 10.6cm. No bilateral edema. Poor appetite for 6 days. This suggests mild nutritional concern, not acute severe malnutrition. Referral is routine for dietary advice and monitoring.\",\n  \"voice_response\": \"Sannu. Your child needs routine dietary advice and monitoring. Please schedule a visit.\"\n}<end_of_turn><start_of_turn>model\n{\n  \"decision\": \"REFER_ROUTINE\",\n  \"primary_diagnosis\": \"Poor Appetite / Mild Nutritional Concern\",\n  \"differential_diagnoses\": [\n    \"Stress/Anxiety\",\n    \"Mild Nutritional Concern\"\n  ],\n  \"confidence\": 0.85,\n  \"treatment_protocol\": null,\n  \"referral\": null,\n  \"monitoring\": null,\n  \"danger_signs\": [\n    \"Bilateral Edema\",\n    \"Weight Loss\"\n  ],\n  \"reasoning_trace\": \"Patient is 13 months, weight 8.9kg. MUAC 10.6cm. No bilateral edema. Poor appetite for 6 days. This suggests mild nutritional concern, not acute severe ma"
+    },
+    {
+      "case_id": "synthetic-01016",
+      "result": {
+        "decision_correct": true,
+        "decision_explicit": true,
+        "schema_complete": true,
+        "danger_sign_correct": false,
+        "drug_dose_correct": true,
+        "protocol_adherence": true
+      },
+      "prediction": {
+        "decision": "REFER_ROUTINE",
+        "primary_diagnosis": "Poor Appetite / Mild Nutritional Concern",
+        "differential_diagnoses": [
+          "Mild Dehydration",
+          "Stress/Anxiety",
+          "Early Stage of Nutritional Concern"
+        ],
+        "confidence": 0.85,
+        "treatment_protocol": "REFER_ROUTINE",
+        "referral": null,
+        "monitoring": null,
+        "danger_signs": [
+          "Bilateral Edema",
+          "Severe Weight Loss"
+        ],
+        "reasoning_trace": "Patient is 31 months, weight 18.2kg. MUAC 10.1cm. No bilateral edema. Poor appetite for 6 days. This suggests mild nutritional concern, not acute crisis. Referral is routine for assessment and advice.",
+        "voice_response": "Lafin da karin lafiya, ina nan don taimaka maka."
+      },
+      "inferred_decision": "REFER_ROUTINE",
+      "guarded_decision": "REFER_URGENT",
+      "override_reason": "MUAC 10.1cm < 11.5cm",
+      "expected": {
+        "decision": "REFER_URGENT",
+        "primary_diagnosis": "Severe Acute Malnutrition with complications",
+        "differential_diagnoses": [],
+        "confidence": 0.91,
+        "treatment_protocol": null,
+        "referral": {
+          "urgency": "IMMEDIATE",
+          "facility_type": "nearest hospital or protocol referral facility",
+          "pre_referral_treatment": [
+            "Give RUTF only if alert and able to swallow",
+            "Keep child warm"
+          ],
+          "message_for_facility": "SAM danger signs. Needs therapeutic feeding facility.",
+          "danger_signs_en_route": [
+            "MUAC below 11.5 cm"
+          ]
+        },
+        "monitoring": null,
+        "danger_signs": [
+          "MUAC below 11.5 cm"
+        ],
+        "reasoning_trace": "Protocol-matched Severe Acute Malnutrition with complications; safety overrides applied where required.",
+        "voice_response": "A tura mara lafiya yanzu: Severe Acute Malnutrition with complications."
+      },
+      "raw_response": "{\n  \"decision\": \"REFER_ROUTINE\",\n  \"primary_diagnosis\": \"Poor Appetite / Mild Nutritional Concern\",\n  \"differential_diagnoses\": [\n    \"Mild Dehydration\",\n    \"Stress/Anxiety\",\n    \"Early Stage of Nutritional Concern\"\n  ],\n  \"confidence\": 0.85,\n  \"treatment_protocol\": \"REFER_ROUTINE\",\n  \"referral\": null,\n  \"monitoring\": null,\n  \"danger_signs\": [\n    \"Bilateral Edema\",\n    \"Severe Weight Loss\"\n  ],\n  \"reasoning_trace\": \"Patient is 31 months, weight 18.2kg. MUAC 10.1cm. No bilateral edema. Poor appetite for 6 days. This suggests mild nutritional concern, not acute crisis. Referral is routine for assessment and advice.\",\n  \"voice_response\": \"Lafin da karin lafiya, ina nan don taimaka maka.\"\n}<end_of_turn><start_of_turn>model\n{\n  \"decision\": \"REFER_ROUTINE\",\n  \"primary_diagnosis\": \"Poor Appetite / Mild Nutritional Concern\",\n  \"differential_diagnoses\": [\n    \"Mild Dehydration\",\n    \"Stress/Anxiety\",\n    \"Early Stage of Nutritional Concern\"\n  ],\n  \"confidence\": 0.85,\n  \"treatment_protocol\": \"REFER_ROUTINE\",\n  \"referral\": null,\n  \"monitoring\": null,\n  \"danger_signs\": [\n    \"Bilateral Edema\",\n    \"Severe Weight Loss\"\n  ],\n  \"reasoning_trace\": \"Patient is 31 months, weight 18.2kg. MUAC 10.1cm. No bilateral edema. Poor appetite for 6 days. This suggests mild nutritional concern, not acute crisis. Referral is routine for assessment and advice.\",\n  \"voice_response\": \"Lafin da karin lafiya, ina nan don taimaka maka.\"\n}<end_of_turn><start_of_turn>model\n{\n  \"decision\": \"REFER_ROUTINE\",\n  \"primary_diagnosis\": \"Poor Appetite / Mild Nutritional Concern\",\n  \"differential_diagnoses\": [\n    \"Mild Dehydration\",\n    \"Stress/Anxiety\",\n    \"Early Stage of Nutritional Concern\"\n  ],\n  \"confidence\": 0.85,\n  \"treatment_protocol\": \"REFER_ROUTINE\",\n  \"referral\": null,\n  \"monitoring\": null,\n  \"danger_signs\": [\n    \"Bilateral Edema\",\n    \"Severe Weight Loss\"\n  ],\n  \"reasoning_trace\": \"Patient is 31 months, weight 18.2kg. MUAC 10.1cm. No bilateral edema. Poor appetite for 6 days. This suggests mild n"
+    }
+  ]
+}

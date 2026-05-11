@@ -1,0 +1,22 @@
+{
+  "completed_at": "2026-05-10T09:01:46.578295+00:00",
+  "base_model": "google/gemma-4-e4b-it",
+  "train_file": "/kaggle/working/shifa/ml/data/processed/training_final.jsonl",
+  "model_dir": "/kaggle/working/shifa/ml/models/shifa-gemma4-e4b-finetuned",
+  "checkpoint_dir": "/kaggle/working/shifa/ml/models/shifa-gemma4-checkpoints",
+  "max_seq_length": 8192,
+  "epochs": 3,
+  "batch_size": 2,
+  "gradient_accumulation_steps": 4,
+  "learning_rate": 0.0002,
+  "lora_r": 16,
+  "lora_alpha": 16,
+  "metrics": {
+    "train_runtime": 6174.3254,
+    "train_samples_per_second": 0.943,
+    "train_steps_per_second": 0.118,
+    "total_flos": 8.112619917991987e+16,
+    "train_loss": 0.05991858752911964,
+    "epoch": 3.0
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "artifacts": [
+    {
+      "key": "data/processed/training_final.jsonl",
+      "path": "/Users/MAC/TS/Shifa/ml/data/processed/training_final.jsonl",
+      "size_bytes": 8081002,
+      "url": "https://pub-b2b135c13b0a406c8a4dc9c60eadb248.r2.dev/data/processed/training_final.jsonl"
+    },
+    {
+      "key": "data/test_cases/imci_test_60.jsonl",
+      "path": "/Users/MAC/TS/Shifa/ml/data/test_cases/imci_test_60.jsonl",
+      "size_bytes": 65460,
+      "url": "https://pub-b2b135c13b0a406c8a4dc9c60eadb248.r2.dev/data/test_cases/imci_test_60.jsonl"
+    },
+    {
+      "key": "data/processed/synthetic_cases_2000.jsonl",
+      "path": "/Users/MAC/TS/Shifa/ml/data/processed/synthetic_cases_2000.jsonl",
+      "size_bytes": 2097922,
+      "url": "https://pub-b2b135c13b0a406c8a4dc9c60eadb248.r2.dev/data/processed/synthetic_cases_2000.jsonl"
+    },
+    {
+      "key": "source_manifest.json",
+      "path": "/Users/MAC/TS/Shifa/ml/data/processed/source_manifest.json",
+      "size_bytes": 4199,
+      "url": "https://pub-b2b135c13b0a406c8a4dc9c60eadb248.r2.dev/source_manifest.json"
+    },
+    {
+      "key": "validation_metrics.json",
+      "path": "/Users/MAC/TS/Shifa/ml/reports/validation_metrics.json",
+      "size_bytes": 43512,
+      "url": "https://pub-b2b135c13b0a406c8a4dc9c60eadb248.r2.dev/validation_metrics.json"
+    },
+    {
+      "key": "training_manifest.json",
+      "path": "/Users/MAC/TS/Shifa/ml/reports/training_manifest.json",
+      "size_bytes": 719,
+      "url": "https://pub-b2b135c13b0a406c8a4dc9c60eadb248.r2.dev/training_manifest.json"
+    },
+    {
+      "key": "models/shifa-gemma4-e4b-finetuned/chat_template.jinja",
+      "path": "/Users/MAC/TS/Shifa/ml/models/shifa-gemma4-e4b-finetuned/chat_template.jinja",
+      "size_bytes": 16804,
+      "url": "https://pub-b2b135c13b0a406c8a4dc9c60eadb248.r2.dev/models/shifa-gemma4-e4b-finetuned/chat_template.jinja"
+    },
+    {
+      "key": "models/shifa-gemma4-e4b-finetuned/README.md",
+      "path": "/Users/MAC/TS/Shifa/ml/models/shifa-gemma4-e4b-finetuned/README.md",
+      "size_bytes": 5254,
+      "url": "https://pub-b2b135c13b0a406c8a4dc9c60eadb248.r2.dev/models/shifa-gemma4-e4b-finetuned/README.md"
+    },
+    {
+      "key": "models/shifa-gemma4-e4b-finetuned/processor_config.json",
+      "path": "/Users/MAC/TS/Shifa/ml/models/shifa-gemma4-e4b-finetuned/processor_config.json",
+      "size_bytes": 1688,
+      "url": "https://pub-b2b135c13b0a406c8a4dc9c60eadb248.r2.dev/models/shifa-gemma4-e4b-finetuned/processor_config.json"
+    },
+    {
+      "key": "models/shifa-gemma4-e4b-finetuned/adapter_model.safetensors",
+      "path": "/Users/MAC/TS/Shifa/ml/models/shifa-gemma4-e4b-finetuned/adapter_model.safetensors",
+      "size_bytes": 169741912,
+      "url": "https://pub-b2b135c13b0a406c8a4dc9c60eadb248.r2.dev/models/shifa-gemma4-e4b-finetuned/adapter_model.safetensors"
+    },
+    {
+      "key": "models/shifa-gemma4-e4b-finetuned/adapter_config.json",
+      "path": "/Users/MAC/TS/Shifa/ml/models/shifa-gemma4-e4b-finetuned/adapter_config.json",
+      "size_bytes": 1220,
+      "url": "https://pub-b2b135c13b0a406c8a4dc9c60eadb248.r2.dev/models/shifa-gemma4-e4b-finetuned/adapter_config.json"
+    },
+    {
+      "key": "models/shifa-gemma4-e4b-finetuned/tokenizer_config.json",
+      "path": "/Users/MAC/TS/Shifa/ml/models/shifa-gemma4-e4b-finetuned/tokenizer_config.json",
+      "size_bytes": 6864,
+      "url": "https://pub-b2b135c13b0a406c8a4dc9c60eadb248.r2.dev/models/shifa-gemma4-e4b-finetuned/tokenizer_config.json"
+    },
+    {
+      "key": "models/shifa-gemma4-e4b-finetuned/tokenizer.json",
+      "path": "/Users/MAC/TS/Shifa/ml/models/shifa-gemma4-e4b-finetuned/tokenizer.json",
+      "size_bytes": 32169626,
+      "url": "https://pub-b2b135c13b0a406c8a4dc9c60eadb248.r2.dev/models/shifa-gemma4-e4b-finetuned/tokenizer.json"
+    }
+  ]
+}
