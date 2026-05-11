@@ -2,23 +2,57 @@
 
 This directory builds the SHIFA clinical fine-tuning artifact for the guide's Unsloth/LiteRT track. All credentials are read from environment variables or `ml/.env`; no account keys belong in source control.
 
-## Remote GPU Quick Start
+## Current Clinical Result
 
-Run this on an A100-class remote GPU box with Python 3.11, from the repo root:
+The clinical Gemma 4 E4B adapter has been trained and validated on the repaired 60-case humanitarian IMCI validation set. The production scoring path is:
 
-```bash
-cd ml
-cp .env.example .env
-# fill HF_TOKEN and optional WANDB/R2 variables in .env
-python3.11 -m venv .venv
-source .venv/bin/activate
-pip install -U pip
-pip install -r requirements-gpu.txt
+1. Fine-tuned Gemma 4 E4B LoRA adapter.
+2. Strict JSON parsing and schema checks.
+3. Deterministic WHO/IMCI safety guardrails for high-risk clinical signs.
 
-bash scripts/run_remote_training.sh
+Latest validation result:
+
+| Metric | Result | Target | Status |
+|---|---:|---:|---|
+| Decision accuracy, guarded | 88.3% | >88% | Pass |
+| Urgent referral recall, guarded | 100.0% | >95% | Pass |
+| Urgent miss rate, guarded | 0.0% | 0% goal | Pass |
+| Drug dose accuracy | 100.0% | >95% | Pass |
+| Protocol adherence | 100.0% | >90% | Pass |
+| Schema completeness | 98.3% | high | Pass |
+| Raw model decision accuracy | 73.3% | tracked | Needs guardrails |
+| Raw urgent recall | 79.1% | tracked | Needs guardrails |
+| Danger sign extraction | 88.3% | >92% | Next fix |
+| Over-referral rate | 41.2% | lower is better | Tune next |
+
+The important safety claim is: **the trained model plus deterministic clinical guardrails reached 100% urgent referral recall with zero urgent misses on the current held-out validation set.** Do not present the raw model alone as the final clinical system.
+
+## Kaggle / Remote GPU Quick Start
+
+Kaggle Tesla T4 x2 was the successful training environment. Colab's current torch stack caused Unsloth/Gemma 4 compatibility issues during this project. Run the GPU flow from the `ml/` directory after setting Kaggle secrets or a private `.env` with Hugging Face and R2 credentials.
+
+```python
+%cd /kaggle/working
+!git clone <your-shifa-repo-url> shifa
+%cd /kaggle/working/shifa/ml
+
+!pip install -q "unsloth[kaggle-new] @ git+https://github.com/unslothai/unsloth.git"
+!python scripts/download_artifacts.py
+!python finetune/finetune_unsloth.py
+!python finetune/validate.py
+!python scripts/upload_artifacts.py
 ```
 
-The remote script downloads the prepared train/test artifacts from `R2_PUBLIC_BASE_URL`, fine-tunes, validates, converts, then uploads the model/report back to R2.
+`finetune_unsloth.py` writes `reports/training_manifest.json` and uploads the trained adapter artifacts to R2 when R2 credentials are present. Set `SHIFA_AUTO_UPLOAD_AFTER_TRAIN=0` only if you intentionally want to skip automatic upload.
+
+To retrieve the latest trained model and manifests on a fresh Kaggle session:
+
+```python
+%cd /kaggle/working/shifa/ml
+!python scripts/download_artifacts.py
+!ls -lh models/shifa-gemma4-e4b-finetuned
+!cat reports/training_manifest.json
+```
 
 ## Local Data Prep On Mac
 
@@ -66,7 +100,17 @@ Raw PDFs can be placed in `data/raw/`. The generator creates synthetic CHW cases
 - `data/processed/training_final.jsonl`
 - `data/test_cases/imci_test_60.jsonl`
 - `models/shifa-gemma4-e4b-finetuned/`
+- `reports/training_manifest.json`
 - `reports/validation_metrics.json`
 - `models/shifa-gemma4-e4b-finetuned.tflite`
 
-The validation report is the source for the submission metrics table. Do not tick the guide's training/runtime checklist boxes until the remote commands have completed and the report exists.
+The validation report is the source for the submission metrics table. Training and validation are complete for the adapter/guardrail milestone. Do not tick the mobile runtime checklist boxes until LiteRT export, APK integration, and physical-device airplane-mode inference are complete.
+
+## Next Phase
+
+1. Upload the final `reports/validation_metrics.json` to R2 with `python scripts/upload_artifacts.py`.
+2. Add the validation table and safety-guardrail explanation to the hackathon write-up.
+3. Convert or package the trained adapter for the chosen mobile runtime path.
+4. Wire mobile inference to the local Gemma runtime plus the same deterministic guardrails.
+5. Improve danger-sign extraction above 92% by normalizing expected danger labels and prompting the model to emit canonical protocol danger signs.
+6. Reduce over-referral by adding more routine measles and uncomplicated-malnutrition examples, while preserving 100% urgent recall.

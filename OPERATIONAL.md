@@ -12,4 +12,12 @@ Engineering requirements:
 - Claims of field readiness require deployed smoke tests, real credential tests, offline/poor-network tests, and clinical/humanitarian partner review.
 - Avoid broad refactors while fixing critical behavior. Keep changes reviewable and verify after every safety-relevant change.
 
+Current ML validation standard:
+
+- Report the clinical model as a combined system: fine-tuned Gemma 4 E4B plus deterministic WHO/IMCI guardrails.
+- Keep raw model metrics separate from guarded clinical-safety metrics.
+- The current acceptable submission claim is 88.3% guarded decision accuracy, 100.0% urgent referral recall, and 0.0% urgent misses on the 60-case multilingual validation set.
+- Do not claim full offline mobile readiness until LiteRT/mobile packaging, custom APK integration, and physical-device airplane-mode inference are complete.
+- Treat danger-sign extraction below target and high over-referral as next-phase safety/product work, not as reasons to bypass guardrails.
+
 This standard applies to backend, dashboard, and mobile work.
