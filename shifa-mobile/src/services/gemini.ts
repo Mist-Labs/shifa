@@ -1,5 +1,6 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import { ClinicalDecision } from './caseLog';
+import { extractJsonObject, normalizeCloudClinicalDecision } from './clinicalContract';
 
 const GEMINI_API_KEY =
   process.env.EXPO_PUBLIC_GOOGLE_API_KEY ||
@@ -82,7 +83,7 @@ export async function buildEvidenceAsset(input: {
   };
 }
 
-export async function analyzeClinicalCase(input: {
+export async function analyzeCloudClinicalCase(input: {
   symptomText: string;
   ageMonths?: number;
   weightKg?: number;
@@ -107,15 +108,17 @@ export async function analyzeClinicalCase(input: {
         'You are SHIFA clinical decision support for trained community health workers in Sudan, DRC, Somalia, Rwanda, and crisis clinics. ' +
         'Analyze the patient text and attached evidence. Use WHO IMCI and SAM field-triage caution. ' +
         'Do not invent facts not present. If evidence is poor or measurements are missing, lower confidence and state immediate safe next action. ' +
+        'Default to REFER_URGENT when danger signs are present, when confidence is below 0.70, or when age/weight needed for dosing is missing. ' +
+        'Use only these decision values: TREAT, REFER_URGENT, REFER_ROUTINE. Do not use MONITOR. ' +
         'Return only valid JSON with this exact shape: ' +
-        '{"decision":"REFER_URGENT|TREAT|MONITOR","primaryDiagnosis":"string","confidence":0.0,"summary":"string","treatmentSteps":["string"],"dangerSigns":["string"],"returnInstructions":["string"],"referral":{"urgency":"URGENT","messageForFacility":"string"},"voiceResponse":"string"}. ' +
-        'Omit referral unless urgent. Confidence must be between 0 and 1.'
+        '{"decision":"REFER_URGENT|REFER_ROUTINE|TREAT","primaryDiagnosis":"string","confidence":0.0,"summary":"string","treatmentSteps":["string"],"dangerSigns":["string"],"returnInstructions":["string"],"referral":{"urgency":"URGENT|ROUTINE","messageForFacility":"string"},"voiceResponse":"string"}. ' +
+        'Omit referral only when the decision is TREAT. Confidence must be between 0 and 1.'
     },
     { text: `Clinical input JSON: ${JSON.stringify(payload)}` },
     ...input.evidence.map(toGeminiPart),
   ]);
 
-  return assertClinicalDecision(parseJson(text));
+  return normalizeCloudClinicalDecision(extractJsonObject(text));
 }
 
 export async function analyzeGuardEvidence(evidence: EvidenceAsset[]): Promise<GuardThreatAnalysis> {
@@ -238,24 +241,6 @@ function parseJson(raw: string): any {
       true
     );
   }
-}
-
-function assertClinicalDecision(value: any): ClinicalDecision {
-  if (!value || typeof value !== 'object') throw new Error('Clinical AI response was not an object.');
-  if (!['REFER_URGENT', 'TREAT', 'MONITOR'].includes(value.decision)) throw new Error('Clinical AI returned an invalid decision.');
-  if (typeof value.primaryDiagnosis !== 'string') throw new Error('Clinical AI omitted primaryDiagnosis.');
-  if (typeof value.confidence !== 'number' || value.confidence < 0 || value.confidence > 1) {
-    throw new Error('Clinical AI returned an invalid confidence.');
-  }
-  for (const key of ['treatmentSteps', 'dangerSigns', 'returnInstructions']) {
-    if (!Array.isArray(value[key]) || value[key].some((item: unknown) => typeof item !== 'string')) {
-      throw new Error(`Clinical AI returned invalid ${key}.`);
-    }
-  }
-  if (typeof value.summary !== 'string' || typeof value.voiceResponse !== 'string') {
-    throw new Error('Clinical AI omitted summary or voiceResponse.');
-  }
-  return value as ClinicalDecision;
 }
 
 function assertGuardThreatAnalysis(value: any): GuardThreatAnalysis {

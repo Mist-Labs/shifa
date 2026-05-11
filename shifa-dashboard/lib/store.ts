@@ -1,9 +1,9 @@
 import { create } from 'zustand';
-import type { DashboardData } from './types';
+import type { Country, DashboardData } from './types';
 
 interface DashboardStore {
   data: DashboardData;
-  selectedCountry: 'all' | 'sudan' | 'drc' | 'somalia';
+  selectedCountry: 'all' | Country;
   setData: (data: DashboardData) => void;
   setSelectedCountry: (country: DashboardStore['selectedCountry']) => void;
 }

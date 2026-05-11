@@ -7,6 +7,7 @@ declare const process: {
     EXPO_PUBLIC_GEMINI_API_KEY?: string;
     EXPO_PUBLIC_GEMINI_MODEL?: string;
     EXPO_PUBLIC_SHIFA_API_URL?: string;
+    EXPO_PUBLIC_SHIFA_MODEL_BASE_URL?: string;
     EXPO_PUBLIC_SHIFA_BLE_SERVICE_UUID?: string;
     EXPO_PUBLIC_SHIFA_BLE_ALERT_CHAR_UUID?: string;
     EXPO_PUBLIC_SHIFA_BLE_SCAN_MS?: string;

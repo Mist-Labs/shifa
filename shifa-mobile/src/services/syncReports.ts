@@ -109,7 +109,7 @@ export async function syncHealthReports(): Promise<HealthSyncResult> {
     });
 
     if (!response.ok) {
-      await markQueueAttempt([...pending.consultations, ...pending.threatEvents].map((item) => item.id), false);
+      await markQueueAttempt([...pending.consultations, ...pending.threatEvents].map((item) => item.id), true);
       return {
         attempted: true,
         success: false,
@@ -135,7 +135,7 @@ export async function syncHealthReports(): Promise<HealthSyncResult> {
       message: `${syncedCount} health report${syncedCount === 1 ? '' : 's'} sent to SHIFA data center.`,
     };
   } catch (error) {
-    await markQueueAttempt([...pending.consultations, ...pending.threatEvents].map((item) => item.id), false);
+    await markQueueAttempt([...pending.consultations, ...pending.threatEvents].map((item) => item.id), true);
     return {
       attempted: true,
       success: false,
@@ -172,7 +172,7 @@ async function loadPendingReports(): Promise<{ consultations: any[]; threatEvent
         symptomText: row.symptom_text || '',
         decision: {
           id: row.id,
-          decision: row.decision || full.decision || 'MONITOR',
+          decision: row.decision || full.decision || 'TREAT',
           primaryDiagnosis: row.primary_diagnosis || full.primaryDiagnosis || 'Unspecified consultation',
           differentialDiagnoses: full.differentialDiagnoses || [],
           confidence: Number(row.confidence ?? full.confidence ?? 0),
@@ -184,7 +184,7 @@ async function loadPendingReports(): Promise<{ consultations: any[]; threatEvent
           },
           referral: full.referral
             ? {
-                urgency: 'IMMEDIATE',
+                urgency: full.referral.urgency === 'ROUTINE' ? 'ROUTINE' : 'IMMEDIATE',
                 facilityType: 'nearest SHIFA referral facility',
                 preReferralTreatment: full.treatmentSteps || [],
                 messageForFacility: full.referral.messageForFacility || full.summary || '',
@@ -193,7 +193,7 @@ async function loadPendingReports(): Promise<{ consultations: any[]; threatEvent
             : undefined,
           monitoring: full.monitoring,
           dangerSigns: (full.dangerSigns || []).map((sign: string) => ({ sign, triggersUrgent: row.decision === 'REFER_URGENT' })),
-          reasoningTrace: full.summary || '',
+          reasoningTrace: full.guardrailOverrideReason ? `${full.summary || ''} Safety protocol applied: ${full.guardrailOverrideReason}` : full.summary || '',
           voiceResponse: row.voice_response_text || full.voiceResponse || '',
         },
         latitude: nullToUndefined(row.latitude),

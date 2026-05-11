@@ -23,7 +23,7 @@ import { downloadExport } from '../lib/export';
 import { useDashboardStore } from '../lib/store';
 import type { Country, DashboardData, OutbreakAlert } from '../lib/types';
 
-const COUNTRIES: Array<'all' | Country> = ['all', 'sudan', 'drc', 'somalia'];
+const COUNTRIES: Array<'all' | Country> = ['all', 'sudan', 'drc', 'somalia', 'nigeria'];
 
 export default function DashboardPage() {
   const { data, setData, selectedCountry, setSelectedCountry } = useDashboardStore();

@@ -15,7 +15,8 @@ function formatTime(timestamp: number): string {
 }
 
 function readableDecision(decision: string, t: (key: string) => string): string {
-  if (decision.includes('REFER')) return t('referUrgent');
+  if (decision.includes('REFER_URGENT')) return t('referUrgent');
+  if (decision.includes('REFER_ROUTINE')) return 'Routine referral';
   if (decision.includes('MONITOR')) return t('monitor');
   if (decision.includes('THREAT')) return t('threat');
   return t('treat');

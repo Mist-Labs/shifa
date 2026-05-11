@@ -1,6 +1,6 @@
 import { executeSql, selectRows } from './sqliteExec';
 
-export type ConsultationDecision = 'REFER_URGENT' | 'TREAT' | 'MONITOR';
+export type ConsultationDecision = 'REFER_URGENT' | 'REFER_ROUTINE' | 'TREAT';
 
 export interface ClinicalDecision {
   decision: ConsultationDecision;
@@ -11,10 +11,13 @@ export interface ClinicalDecision {
   dangerSigns: string[];
   returnInstructions: string[];
   referral?: {
-    urgency: 'URGENT';
+    urgency: 'URGENT' | 'ROUTINE';
     messageForFacility: string;
   };
   voiceResponse: string;
+  engineMode?: 'local_model' | 'cloud_fallback' | 'protocol_fallback';
+  rawDecision?: ConsultationDecision | 'MONITOR';
+  guardrailOverrideReason?: string;
 }
 
 export interface ConsultationInput {
@@ -192,10 +195,10 @@ export function evaluateFieldProtocol(input: {
 
   if (respiratoryWatch) {
     return {
-      decision: 'MONITOR',
+      decision: 'TREAT',
       primaryDiagnosis: 'Mild Respiratory Infection',
       confidence: 0.82,
-      summary: 'Watch and wait',
+      summary: 'Treat and monitor',
       treatmentSteps: ['Give fluids frequently', 'Continue breastfeeding', 'Keep child warm and rested'],
       dangerSigns: ['Fast breathing develops', 'Refuses all food or drink'],
       returnInstructions: ['Recheck in 24 hours', 'Return immediately if breathing worsens'],

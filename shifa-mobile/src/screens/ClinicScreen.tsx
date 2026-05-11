@@ -32,7 +32,8 @@ import { ClinicalDecision, logConsultation } from '../services/caseLog';
 import { getActiveCHWProfile } from '../services/chwProfile';
 import { colors, decisionColor, decisionSoftColor, fieldShadow, highContrastShadow } from '../design/system';
 import { useUIPreferences } from '../services/uiPreferences';
-import { analyzeClinicalCase, buildEvidenceAsset, EvidenceAsset, getFieldSafeAIMessage, isGeminiConfigured } from '../services/gemini';
+import { analyzeClinicalCase } from '../services/clinicalEngine';
+import { buildEvidenceAsset, EvidenceAsset, getFieldSafeAIMessage } from '../services/gemini';
 import { getHealthDataCenterUrl, getHealthSyncSummary, HealthSyncSummary, syncHealthReports } from '../services/syncReports';
 import { useI18n } from '../services/i18n';
 
@@ -184,11 +185,6 @@ export default function ClinicScreen() {
   const beginConsult = async () => {
     if (recorderActionInFlight.current || audioState.isRecording || stage === 'listening') return;
     recorderActionInFlight.current = true;
-    if (!isGeminiConfigured()) {
-      Alert.alert('Google AI key missing', 'Add EXPO_PUBLIC_GOOGLE_API_KEY or EXPO_PUBLIC_GEMINI_API_KEY to shifa-mobile/.env before clinical AI analysis.');
-      recorderActionInFlight.current = false;
-      return;
-    }
     try {
       const permission = await requestRecordingPermissionsAsync();
       if (!permission.granted) {
@@ -343,10 +339,6 @@ export default function ClinicScreen() {
   };
 
   const runClinicalAnalysis = async () => {
-    if (!isGeminiConfigured()) {
-      Alert.alert('Google AI key missing', 'Add EXPO_PUBLIC_GOOGLE_API_KEY or EXPO_PUBLIC_GEMINI_API_KEY to shifa-mobile/.env before clinical AI analysis.');
-      return;
-    }
     if (!hasClinicalInput) {
       Alert.alert('Case details required', 'Enter symptoms, measurements, edema status, or attach evidence before analysis.');
       return;
@@ -360,6 +352,7 @@ export default function ClinicScreen() {
         muacCm: Number.isFinite(parsed.muacCm) && parsed.muacCm !== 0 ? parsed.muacCm : undefined,
         bilateralEdema,
         evidence: clinicalEvidence,
+        online,
       });
       setDecision(nextDecision);
       setStage('result');
@@ -812,7 +805,7 @@ function ResultScreen({
   hasAudio: boolean;
 }) {
   const urgent = decision.decision === 'REFER_URGENT';
-  const monitor = decision.decision === 'MONITOR';
+  const routine = decision.decision === 'REFER_ROUTINE';
   const mainColor = decisionColor(decision.decision);
   const soft = decisionSoftColor(decision.decision);
 
@@ -821,7 +814,7 @@ function ResultScreen({
       <ScrollView contentContainerStyle={styles.resultContent}>
         <View style={[styles.resultHeader, { backgroundColor: mainColor }, urgent && styles.urgentHeader]}>
           <View>
-            <Text style={styles.resultDecision}>{urgent ? 'REFER URGENT' : monitor ? 'MONITOR' : 'TREAT'}</Text>
+            <Text style={styles.resultDecision}>{urgent ? 'REFER URGENT' : routine ? 'REFER ROUTINE' : 'TREAT'}</Text>
             <Text style={styles.resultSummary}>{decision.summary}</Text>
           </View>
           {urgent ? <AlertTriangle color={colors.white} size={34} /> : <CheckCircle color={colors.white} size={34} />}
@@ -833,12 +826,23 @@ function ResultScreen({
         </View>
 
         <View style={styles.resultTriageGrid}>
-          <ResultMetric label="Decision" value={urgent ? 'Urgent referral' : monitor ? 'Monitor' : 'Treat here'} color={mainColor} />
+          <ResultMetric label="Decision" value={urgent ? 'Urgent referral' : routine ? 'Routine referral' : 'Treat here'} color={mainColor} />
           <ResultMetric label="Audio" value={hasAudio ? 'Attached' : 'None'} color={hasAudio ? colors.green : colors.amber} />
           <ResultMetric label="Report" value={logged ? 'Saved' : 'Not saved'} color={logged ? colors.green : colors.amber} />
+          <ResultMetric label="Engine" value={readableEngineMode(decision.engineMode)} color={decision.engineMode === 'protocol_fallback' ? colors.amber : colors.green} />
         </View>
 
-        <Text style={styles.sectionHeader}>{urgent ? 'BEFORE YOU GO' : monitor ? 'HOME CARE' : 'TREATMENT STEPS'}</Text>
+        {decision.guardrailOverrideReason && (
+          <View style={styles.safetyProtocolCard}>
+            <AlertTriangle color={colors.red} size={18} />
+            <View style={styles.safetyProtocolTextGroup}>
+              <Text style={styles.safetyProtocolTitle}>Safety protocol applied</Text>
+              <Text style={styles.safetyProtocolText}>{decision.guardrailOverrideReason}</Text>
+            </View>
+          </View>
+        )}
+
+        <Text style={styles.sectionHeader}>{urgent ? 'BEFORE YOU GO' : routine ? 'REFERRAL STEPS' : 'TREATMENT STEPS'}</Text>
         {decision.treatmentSteps.map((step, index) => (
           <View key={step} style={styles.instructionRow}>
             <Text style={[styles.instructionNumber, { backgroundColor: mainColor }]}>{index + 1}</Text>
@@ -856,11 +860,11 @@ function ResultScreen({
           </View>
         ))}
 
-        {urgent && (
+        {(urgent || routine) && (
           <View style={styles.referralCard}>
             <View style={styles.referralHeader}>
               <Text style={styles.referralTitle}>REFERRAL CARD</Text>
-              <Text style={styles.referralBadge}>URGENT</Text>
+              <Text style={styles.referralBadge}>{urgent ? 'URGENT' : 'ROUTINE'}</Text>
             </View>
             <View style={styles.referralGrid}>
               <InfoBlock label="Sex" value="Not recorded" />
@@ -871,6 +875,9 @@ function ResultScreen({
             <View style={styles.referralDiagnosis}>
               <Text style={styles.referralDiagnosisLabel}>Diagnosis</Text>
               <Text style={styles.referralDiagnosisText}>{decision.primaryDiagnosis}</Text>
+              {decision.guardrailOverrideReason && (
+                <Text style={styles.referralDiagnosisDetail}>Safety protocol applied: {decision.guardrailOverrideReason}</Text>
+              )}
               <Text style={styles.referralDiagnosisDetail}>
                 {patient.bilateralEdema ? 'Bilateral edema recorded' : 'Bilateral edema not recorded'}
                 {patient.muacCm ? ` • MUAC ${patient.muacCm} cm` : ''}
@@ -923,6 +930,13 @@ function ResultMetric({ label, value, color }: { label: string; value: string; c
       <Text style={[styles.resultMetricValue, { color }]} numberOfLines={1}>{value}</Text>
     </View>
   );
+}
+
+function readableEngineMode(mode?: ClinicalDecision['engineMode']): string {
+  if (mode === 'local_model') return 'Offline model';
+  if (mode === 'cloud_fallback') return 'Cloud fallback';
+  if (mode === 'protocol_fallback') return 'Protocol rules';
+  return 'Clinical engine';
 }
 
 function InfoBlock({ label, value }: { label: string; value: string }) {
@@ -1941,12 +1955,14 @@ const styles = StyleSheet.create({
   },
   resultTriageGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
     marginHorizontal: 16,
     marginBottom: 12,
   },
   resultMetric: {
     flex: 1,
+    flexBasis: '47%',
     minHeight: 58,
     borderRadius: 8,
     borderWidth: StyleSheet.hairlineWidth,
@@ -1964,6 +1980,31 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '900',
     marginTop: 4,
+  },
+  safetyProtocolCard: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#F3B4B4',
+    backgroundColor: colors.redSoft,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  safetyProtocolTextGroup: {
+    flex: 1,
+    marginLeft: 10,
+  },
+  safetyProtocolTitle: {
+    color: colors.red,
+    fontWeight: '900',
+    fontSize: 13,
+  },
+  safetyProtocolText: {
+    color: colors.ink,
+    fontWeight: '800',
+    marginTop: 2,
   },
   sectionHeader: {
     color: colors.green,

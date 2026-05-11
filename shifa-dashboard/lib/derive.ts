@@ -28,6 +28,7 @@ export function deriveFacilityStatus(cases: ShifaCase[]): FacilityStatus[] {
     { id: 'sd-ctc', name: 'Sudan AWD / Cholera Treatment Cell', country: 'sudan', services: ['cholera', 'ORS', 'IV fluids'], urgentReferrals: 0, operational: true, lastSignal: '' },
     { id: 'drc-isolation', name: 'Eastern DRC Isolation & Vaccination Desk', country: 'drc', services: ['mpox', 'measles', 'isolation'], urgentReferrals: 0, operational: true, lastSignal: '' },
     { id: 'so-emoc', name: 'Somalia Emergency Obstetric Referral Desk', country: 'somalia', services: ['maternal', 'neonatal', 'emergency'], urgentReferrals: 0, operational: true, lastSignal: '' },
+    { id: 'ng-meningitis', name: 'Northern Nigeria Meningitis Surveillance Desk', country: 'nigeria', services: ['meningitis', 'neonatal', 'emergency'], urgentReferrals: 0, operational: true, lastSignal: '' },
   ];
 
   for (const record of cases) {
@@ -73,6 +74,7 @@ function addCountry(countries: Country[], country: Country): Country[] {
 
 function selectFacility(facilities: FacilityStatus[], record: ShifaCase): FacilityStatus {
   const diagnosis = record.decision.primaryDiagnosis.toLowerCase();
+  if (record.country === 'nigeria') return facilities.find((f) => f.id === 'ng-meningitis')!;
   if (record.country === 'drc') return facilities.find((f) => f.id === 'drc-isolation')!;
   if (record.country === 'somalia' && diagnosis.includes('maternal')) return facilities.find((f) => f.id === 'so-emoc')!;
   if (diagnosis.includes('diarrhea') || diagnosis.includes('cholera')) return facilities.find((f) => f.id === 'sd-ctc')!;

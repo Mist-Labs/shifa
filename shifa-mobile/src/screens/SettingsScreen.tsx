@@ -12,13 +12,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { Bell, Check, Cloud, Globe2, Languages, MapPin, Moon, Plus, Server, Trash2, User } from 'lucide-react-native';
+import { Bell, Check, Cloud, Download, Globe2, Languages, MapPin, Moon, Plus, Server, Trash2, User } from 'lucide-react-native';
 import { CountryCode, getActiveCHWProfile, normalizePhone, saveCHWProfile } from '../services/chwProfile';
 import { colors } from '../design/system';
 import { useUIPreferences } from '../services/uiPreferences';
 import { saveLanguagePreference, toAppLanguage, useI18n } from '../services/i18n';
 import { isGeminiConfigured } from '../services/gemini';
 import { getHealthSyncSummary, HealthSyncSummary } from '../services/syncReports';
+import { downloadClinicalModelArtifacts, getClinicalModelStatus, ModelArtifactStatus } from '../services/modelManager';
 
 const COUNTRIES = [
   { label: 'Sudan', value: 'sudan', defaultLanguage: 'ar', code: 'SD' as CountryCode },
@@ -49,14 +50,18 @@ export default function SettingsScreen() {
   const [recipients, setRecipients] = useState<string[]>([]);
   const [guardEnabled, setGuardEnabled] = useState(false);
   const [syncSummary, setSyncSummary] = useState<HealthSyncSummary | null>(null);
+  const [modelStatus, setModelStatus] = useState<ModelArtifactStatus | null>(null);
+  const [modelDownloading, setModelDownloading] = useState(false);
+  const [modelDownloadLabel, setModelDownloadLabel] = useState('');
   const [profileDirty, setProfileDirty] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const { darkMode, setDarkMode } = useUIPreferences();
   const { t, setLanguage: setAppLanguage } = useI18n();
 
   const loadProfile = useCallback(async () => {
-    const [profile, nextSyncSummary] = await Promise.all([getActiveCHWProfile(), getHealthSyncSummary()]);
+    const [profile, nextSyncSummary, nextModelStatus] = await Promise.all([getActiveCHWProfile(), getHealthSyncSummary(), getClinicalModelStatus()]);
     setSyncSummary(nextSyncSummary);
+    setModelStatus(nextModelStatus);
     if (profile.id !== 'CHW-UNCONFIGURED') {
       setCountry(profile.country);
       setLanguage(profile.language);
@@ -97,6 +102,22 @@ export default function SettingsScreen() {
       void setAppLanguage(toAppLanguage(selected.defaultLanguage));
     }
     setProfileDirty(true);
+  };
+
+  const downloadModelArtifacts = async () => {
+    setModelDownloading(true);
+    setModelDownloadLabel('Starting download');
+    try {
+      const status = await downloadClinicalModelArtifacts((done, total, filename) => {
+        setModelDownloadLabel(`${done}/${total} ${filename}`);
+      });
+      setModelStatus(status);
+      Alert.alert('Model artifacts ready', 'SHIFA clinical model artifacts are stored on this device. Native LiteRT runtime integration is still required for fully local Gemma inference.');
+    } catch (error) {
+      Alert.alert('Model download failed', error instanceof Error ? error.message : 'Unable to download model artifacts.');
+    } finally {
+      setModelDownloading(false);
+    }
   };
 
   const addRecipient = () => {
@@ -314,8 +335,19 @@ export default function SettingsScreen() {
           <ReadinessRow
             icon={<Cloud color={isGeminiConfigured() ? colors.green : colors.amber} size={20} />}
             label="Clinical AI"
-            value={isGeminiConfigured() ? 'Gemini connected for demo' : 'Cloud key missing'}
-            tone={isGeminiConfigured() ? 'good' : 'warn'}
+            value={modelStatus?.ready ? 'Model artifacts on device' : isGeminiConfigured() ? 'Cloud fallback configured' : 'Protocol rules only'}
+            tone={modelStatus?.ready || isGeminiConfigured() ? 'good' : 'warn'}
+            dim={darkMode}
+          />
+          <ReadinessRow
+            icon={<Download color={modelStatus?.ready ? colors.green : colors.amber} size={20} />}
+            label="Model files"
+            value={
+              modelStatus?.configured
+                ? `${modelStatus.downloadedCount}/${modelStatus.requiredCount} required files • ${formatBytes(modelStatus.totalBytes)}`
+                : 'Set EXPO_PUBLIC_SHIFA_MODEL_BASE_URL'
+            }
+            tone={modelStatus?.ready ? 'good' : 'warn'}
             dim={darkMode}
           />
           <ReadinessRow
@@ -333,6 +365,14 @@ export default function SettingsScreen() {
             dim={darkMode}
             last
           />
+          <TouchableOpacity
+            style={[styles.modelDownloadButton, (!modelStatus?.configured || modelDownloading) && styles.modelDownloadButtonDisabled]}
+            onPress={downloadModelArtifacts}
+            disabled={!modelStatus?.configured || modelDownloading}
+          >
+            <Download color={colors.white} size={18} />
+            <Text style={styles.modelDownloadText}>{modelDownloading ? modelDownloadLabel : modelStatus?.ready ? 'Refresh model artifacts' : 'Download model artifacts'}</Text>
+          </TouchableOpacity>
         </View>
 
         <Text style={[styles.sectionTitle, darkMode && styles.dimSectionTitle]}>{t('display')}</Text>
@@ -363,6 +403,13 @@ export default function SettingsScreen() {
       </ScrollView>
     </SafeAreaView>
   );
+}
+
+function formatBytes(bytes: number): string {
+  if (!bytes) return '0 MB';
+  const mb = bytes / (1024 * 1024);
+  if (mb < 1024) return `${mb.toFixed(1)} MB`;
+  return `${(mb / 1024).toFixed(2)} GB`;
 }
 
 function SettingRow({
@@ -571,6 +618,23 @@ const styles = StyleSheet.create({
   },
   readinessDot_bad: {
     backgroundColor: colors.red,
+  },
+  modelDownloadButton: {
+    minHeight: 46,
+    margin: 12,
+    borderRadius: 8,
+    backgroundColor: colors.green,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  modelDownloadButtonDisabled: {
+    backgroundColor: colors.lineStrong,
+  },
+  modelDownloadText: {
+    color: colors.white,
+    fontWeight: '900',
   },
   groupHeader: {
     flexDirection: 'row',

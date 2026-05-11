@@ -42,6 +42,8 @@ export const highContrastShadow: ViewStyle = {
 
 export function decisionColor(decision: string) {
   const normalized = decision.toUpperCase();
+  if (normalized.includes('REFER_URGENT')) return colors.red;
+  if (normalized.includes('REFER_ROUTINE')) return colors.amber;
   if (normalized.includes('REFER')) return colors.red;
   if (normalized.includes('MONITOR')) return colors.blue;
   if (normalized.includes('THREAT')) return colors.purple;
@@ -50,6 +52,8 @@ export function decisionColor(decision: string) {
 
 export function decisionSoftColor(decision: string) {
   const normalized = decision.toUpperCase();
+  if (normalized.includes('REFER_URGENT')) return colors.redSoft;
+  if (normalized.includes('REFER_ROUTINE')) return colors.amberSoft;
   if (normalized.includes('REFER')) return colors.redSoft;
   if (normalized.includes('MONITOR')) return colors.blueSoft;
   if (normalized.includes('THREAT')) return colors.purpleSoft;

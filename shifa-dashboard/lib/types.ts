@@ -1,4 +1,4 @@
-export type Country = 'sudan' | 'drc' | 'somalia';
+export type Country = 'sudan' | 'drc' | 'somalia' | 'nigeria';
 export type Decision = 'TREAT' | 'REFER_URGENT' | 'REFER_ROUTINE' | 'MONITOR';
 export type ThreatUrgency = 'CRITICAL' | 'HIGH' | 'MODERATE' | 'LOW';
 
