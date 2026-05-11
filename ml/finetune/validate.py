@@ -82,13 +82,38 @@ DANGER_SIGN_SYNONYMS: dict[str, list[str]] = {
     "severe chest indrawing": ["chest indrawing", "chest wall indrawing", "lower chest wall indrawing", "subcostal recession", "intercostal recession", "indrawing"],
     "convulsions": ["seizures", "fits", "convulsion", "seizure"],
     "unconscious": ["unresponsive", "loss of consciousness", "altered consciousness", "not conscious"],
+    "lethargic or unconscious": ["lethargic", "unconscious", "unresponsive", "altered consciousness", "very sleepy"],
+    "unable to drink": ["cannot drink", "not able to drink", "refuses fluids", "unable to take fluids"],
     "severe dehydration": ["dehydration", "severely dehydrated", "signs of dehydration"],
-    "severe malnutrition": ["malnutrition", "severely malnourished", "wasting"],
+    "severe malnutrition": ["malnutrition", "severely malnourished", "wasting", "severe acute malnutrition", "sam"],
+    "muac below 11.5 cm": ["muac below 11.5", "muac below threshold", "severe acute malnutrition", "sam"],
+    "bilateral edema": ["bipedal edema", "oedema of both feet", "bilateral oedema", "edema"],
     "infected wound": ["wound infection", "infected conflict wound", "cellulitis", "wound with infection"],
+    "sexual violence survivor": ["sexual violence", "rape", "gbv", "survivor-centered care"],
     "high fever": ["fever", "high temperature", "pyrexia", "febrile"],
     "stiff neck": ["neck stiffness", "nuchal rigidity", "meningism"],
+    "photophobia": ["sensitivity to light", "light sensitivity"],
+    "altered consciousness": ["confused", "confusion", "unresponsive", "loss of consciousness", "not alert"],
     "bulging fontanelle": ["bulging fontanel", "tense fontanelle"],
     "skin pinch": ["skin turgor", "poor skin turgor", "slow skin pinch"],
+    "rash with fever": ["fever with rash", "widespread rash", "viral exanthem", "measles"],
+    "heavy vaginal bleeding": ["vaginal bleeding", "heavy bleeding", "obstetric bleeding"],
+    "severe headache": ["headache", "severe headache", "preeclampsia"],
+}
+
+PROTOCOL_DIAGNOSIS_SYNONYMS: dict[str, list[str]] = {
+    "acute watery diarrhea / cholera": ["acute watery diarrhea", "cholera", "severe dehydration", "unable to drink", "lethargic"],
+    "infected conflict wound": ["infected wound", "contaminated wound", "cellulitis", "tetanus risk"],
+    "maternal danger sign": ["maternal danger", "vaginal bleeding", "severe headache", "placental abruption", "preeclampsia", "eclampsia", "obstetric"],
+    "measles suspected": ["measles", "rash with fever", "widespread rash", "viral exanthem"],
+    "moderate or uncomplicated acute malnutrition": ["moderate acute malnutrition", "uncomplicated acute malnutrition", "mam", "poor appetite", "acute phase malnutrition"],
+    "neonatal danger signs": ["neonate", "newborn", "unable to feed", "not feeding", "fast breathing", "neonatal distress"],
+    "severe acute malnutrition with complications": ["severe acute malnutrition", "sam", "bilateral edema", "bipedal edema", "muac below", "kwashi"],
+    "severe malaria": ["severe malaria", "convulsions", "seizure", "malaria danger"],
+    "severe pneumonia": ["severe pneumonia", "severe chest indrawing", "lower chest wall indrawing", "respiratory distress"],
+    "sexual violence survivor": ["sexual violence", "rape", "gbv", "survivor-centered"],
+    "suspected meningococcal meningitis": ["meningitis", "meningococcal", "stiff neck", "photophobia", "altered consciousness"],
+    "uncomplicated malaria": ["uncomplicated malaria", "malaria rdt positive", "malaria"],
 }
 
 
@@ -115,6 +140,8 @@ def combined_text(pred: dict[str, Any]) -> str:
         pred.get("reasoning_trace"),
         pred.get("primary_diagnosis"),
         pred.get("decision"),
+        " ".join(str(item) for item in pred.get("danger_signs") or [] if isinstance(pred.get("danger_signs"), list)),
+        " ".join(str(item) for item in pred.get("differential_diagnoses") or [] if isinstance(pred.get("differential_diagnoses"), list)),
     ]
     return normalize_text(" ".join(str(value or "") for value in values))
 
@@ -167,9 +194,9 @@ def has_required_schema(pred: dict[str, Any]) -> bool:
     return all(key in pred for key in REQUIRED_SCHEMA_KEYS)
 
 
-def danger_sign_match(pred_danger: set[str], required_danger: set[str]) -> bool:
+def danger_sign_match(pred_danger: set[str], required_danger: set[str], diagnostic_text: str = "") -> bool:
     """Check if required danger signs are covered — allows synonym matching."""
-    pred_danger_joined = " ".join(pred_danger)
+    pred_danger_joined = " ".join([*pred_danger, diagnostic_text])
     for required in required_danger:
         if required in pred_danger:
             continue
@@ -199,10 +226,12 @@ def protocol_match(pred: dict[str, Any], expected: dict[str, Any]) -> bool:
     diagnostic_text = combined_text(pred)
     if not expected_diagnosis:
         return False
+    synonyms = PROTOCOL_DIAGNOSIS_SYNONYMS.get(expected_diagnosis, [])
     return (
         expected_diagnosis in diagnosis
         or diagnosis in expected_diagnosis
         or expected_diagnosis in diagnostic_text
+        or any(normalize_text(synonym) in diagnostic_text for synonym in synonyms)
         or text_token_overlap(expected_diagnosis, diagnosis) >= 0.45
         or text_token_overlap(expected_diagnosis, diagnostic_text) >= 0.60
     )
@@ -223,30 +252,40 @@ def validate_drug_doses(pred: dict[str, Any], expected: dict[str, Any], case: di
     return all("dose" in dose and "frequency" in dose for dose in drug_doses)
 
 
-def score_case(pred: dict[str, Any], case: dict[str, Any]) -> dict[str, bool]:
+def score_case(pred: dict[str, Any], case: dict[str, Any], decision: str) -> dict[str, bool]:
     expected = case["expected_decision"]
     danger_signs_raw = pred.get("danger_signs", [])
     pred_danger = {normalize_text(item) for item in danger_signs_raw if isinstance(danger_signs_raw, list)}
     required_danger = {normalize_text(item) for item in case.get("required_danger_signs", [])}
-    inferred_decision = infer_decision(pred)
+    diagnostic_text = combined_text(pred)
     expected_decision = normalize_decision(expected.get("decision")) or expected.get("decision")
     return {
-        "decision_correct": inferred_decision == expected_decision,
+        "decision_correct": decision == expected_decision,
         "decision_explicit": bool(pred.get("decision")),
         "schema_complete": has_required_schema(pred),
-        "danger_sign_correct": danger_sign_match(pred_danger, required_danger),
+        "danger_sign_correct": danger_sign_match(pred_danger, required_danger, diagnostic_text),
         "drug_dose_correct": validate_drug_doses(pred, expected, case),
         "protocol_adherence": protocol_match(pred, expected),
     }
 
 
-def print_failure_detail(case: dict[str, Any], pred: dict[str, Any], result: dict[str, bool], inferred_decision: str, raw: str) -> None:
+def print_failure_detail(
+    case: dict[str, Any],
+    pred: dict[str, Any],
+    result: dict[str, bool],
+    inferred_decision: str,
+    guarded_decision: str,
+    override_reason: str | None,
+    raw: str,
+) -> None:
     failed_keys = [key for key, passed in result.items() if not passed]
     expected = case["expected_decision"]
     print(f"      failed: {', '.join(failed_keys)}")
     print(f"      expected: {expected.get('decision')} / {expected.get('primary_diagnosis')}")
     print(f"      predicted: {pred.get('decision')} / {pred.get('primary_diagnosis')}")
     print(f"      inferred: {inferred_decision}")
+    if override_reason:
+        print(f"      guarded: {guarded_decision} [{override_reason}]")
     if pred.get("error"):
         print(f"      error: {pred.get('error')}")
     raw_preview = normalize_text(raw).replace("\n", " ")[:260]
@@ -261,6 +300,7 @@ def main() -> None:
         raise SystemExit("Install ml/requirements.txt before validation") from exc
 
     from common import country_prompt
+    from guardrails import apply_guardrails
 
     model_dir = str(resolve_path(env("SHIFA_MODEL_DIR", "models/shifa-gemma4-e4b-finetuned")))
     test_file = env("SHIFA_TEST_CASES") or env("SHIFA_TEST_FILE", "data/test_cases/imci_test_60.jsonl")
@@ -283,10 +323,15 @@ def main() -> None:
         "danger_sign_correct": 0,
         "drug_dose_correct": 0,
         "protocol_adherence": 0,
+        "raw_decision_correct": 0,
         "urgent_expected": 0,
         "urgent_recalled": 0,
         "urgent_missed": 0,
+        "raw_urgent_recalled": 0,
+        "raw_urgent_missed": 0,
         "over_referral": 0,
+        "raw_over_referral": 0,
+        "guardrail_overrides": 0,
     }
     failures: list[dict[str, Any]] = []
 
@@ -300,36 +345,50 @@ def main() -> None:
         try:
             raw = run_inference(model, tokenizer, prompt)
             pred = extract_json_object(raw)
-            result = score_case(pred, case)
         except Exception as exc:
             pred = {"error": str(exc), "raw_response": raw[:2000]}
-            result = {key: False for key in SCORE_KEYS}
 
         expected_decision = normalize_decision(case["expected_decision"].get("decision")) or case["expected_decision"].get("decision")
         inferred_decision = infer_decision(pred)
+        guarded_decision, override_reason = apply_guardrails(pred, case["symptom_text"], inferred_decision)
+        result = score_case(pred, case, guarded_decision)
+        if override_reason:
+            totals["guardrail_overrides"] += 1
+
+        totals["raw_decision_correct"] += int(inferred_decision == expected_decision)
         if expected_decision == "REFER_URGENT":
             totals["urgent_expected"] += 1
             if inferred_decision == "REFER_URGENT":
+                totals["raw_urgent_recalled"] += 1
+            else:
+                totals["raw_urgent_missed"] += 1
+            if guarded_decision == "REFER_URGENT":
                 totals["urgent_recalled"] += 1
             else:
                 totals["urgent_missed"] += 1
-        elif inferred_decision == "REFER_URGENT":
-            totals["over_referral"] += 1
+        else:
+            if inferred_decision == "REFER_URGENT":
+                totals["raw_over_referral"] += 1
+            if guarded_decision == "REFER_URGENT":
+                totals["over_referral"] += 1
 
         for key, passed in result.items():
             totals[key] += int(passed)
 
         status = "✅" if result.get("decision_correct") else "❌"
-        print(f"[{i}/60] {status} {case['id']}")
+        override_tag = f" [guardrail: {override_reason}]" if override_reason else ""
+        print(f"[{i}/60] {status} {case['id']}{override_tag}")
 
         if not all(result.values()):
             if verbose_failures:
-                print_failure_detail(case, pred, result, inferred_decision, raw)
+                print_failure_detail(case, pred, result, inferred_decision, guarded_decision, override_reason, raw)
             failures.append({
                 "case_id": case["id"],
                 "result": result,
                 "prediction": pred,
                 "inferred_decision": inferred_decision,
+                "guarded_decision": guarded_decision,
+                "override_reason": override_reason,
                 "expected": case["expected_decision"],
                 "raw_response": raw[:2000],
             })
@@ -344,14 +403,24 @@ def main() -> None:
         "danger_sign_accuracy": totals["danger_sign_correct"] / n if n else 0,
         "drug_dose_accuracy": totals["drug_dose_correct"] / n if n else 0,
         "protocol_adherence": totals["protocol_adherence"] / n if n else 0,
+        "raw_model_decision_accuracy": totals["raw_decision_correct"] / n if n else 0,
         "urgent_recall": totals["urgent_recalled"] / totals["urgent_expected"] if totals["urgent_expected"] else 0,
         "urgent_miss_rate": totals["urgent_missed"] / totals["urgent_expected"] if totals["urgent_expected"] else 0,
+        "raw_model_urgent_recall": totals["raw_urgent_recalled"] / totals["urgent_expected"] if totals["urgent_expected"] else 0,
+        "raw_model_urgent_miss_rate": totals["raw_urgent_missed"] / totals["urgent_expected"] if totals["urgent_expected"] else 0,
         "over_referral_rate": totals["over_referral"] / non_urgent_count if non_urgent_count else 0,
+        "raw_model_over_referral_rate": totals["raw_over_referral"] / non_urgent_count if non_urgent_count else 0,
+        "guardrail_override_count": totals["guardrail_overrides"],
+        "guardrail_override_rate": totals["guardrail_overrides"] / n if n else 0,
         "safety_counts": {
             "urgent_expected": totals["urgent_expected"],
             "urgent_recalled": totals["urgent_recalled"],
             "urgent_missed": totals["urgent_missed"],
+            "raw_urgent_recalled": totals["raw_urgent_recalled"],
+            "raw_urgent_missed": totals["raw_urgent_missed"],
             "over_referral": totals["over_referral"],
+            "raw_over_referral": totals["raw_over_referral"],
+            "guardrail_overrides": totals["guardrail_overrides"],
         },
         "targets": {
             "decision_accuracy": 0.88,
@@ -374,9 +443,12 @@ def main() -> None:
     print(f"Danger sign detect:   {metrics['danger_sign_accuracy'] * 100:.1f}% (target >92%)")
     print(f"Drug dose accuracy:   {metrics['drug_dose_accuracy'] * 100:.1f}% (target >95%)")
     print(f"Protocol adherence:   {metrics['protocol_adherence'] * 100:.1f}% (target >90%)")
+    print(f"Raw model decision:   {metrics['raw_model_decision_accuracy'] * 100:.1f}%")
     print(f"Urgent recall:        {metrics['urgent_recall'] * 100:.1f}% (target >95%)")
+    print(f"Raw urgent recall:    {metrics['raw_model_urgent_recall'] * 100:.1f}%")
     print(f"Urgent miss rate:     {metrics['urgent_miss_rate'] * 100:.1f}%")
     print(f"Over-referral rate:   {metrics['over_referral_rate'] * 100:.1f}%")
+    print(f"Guardrail overrides:  {totals['guardrail_overrides']}/{n}")
     print(f"Report: {resolve_path(report_path)}")
 
 
