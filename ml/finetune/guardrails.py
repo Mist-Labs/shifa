@@ -36,6 +36,15 @@ DIAGNOSIS_URGENT_PATTERNS: list[tuple[str, str]] = [
     (r"maternal\s+danger|obstetric\s+emergency", "Maternal danger sign"),
 ]
 
+ROUTINE_OVERRIDE_PATTERNS: list[tuple[str, str]] = [
+    (
+        r"fever.{0,50}(widespread\s+rash|rash).{0,80}(cough|red\s+eyes)|"
+        r"(widespread\s+rash|rash).{0,80}(cough|red\s+eyes).{0,80}fever|"
+        r"measles",
+        "Measles suspected without emergency danger signs",
+    ),
+]
+
 
 def _check_muac(text: str) -> tuple[bool, str | None]:
     matches = re.findall(r"muac[:\s=]*([0-9]+(?:\.[0-9]+)?)\s*(?:cm)?", text, re.IGNORECASE)
@@ -68,24 +77,43 @@ def _diagnostic_text(pred: dict[str, Any]) -> str:
     ])
 
 
+def _urgent_objective_reason(objective: str) -> str | None:
+    triggered, reason = _check_muac(objective)
+    if triggered:
+        return reason
+    for pattern, reason in OBJECTIVE_URGENT_PATTERNS:
+        if re.search(pattern, objective, re.IGNORECASE):
+            return reason
+    return None
+
+
+def _routine_override_reason(objective: str, diagnostic: str) -> str | None:
+    text = f"{objective} {diagnostic}"
+    for pattern, reason in ROUTINE_OVERRIDE_PATTERNS:
+        if re.search(pattern, text, re.IGNORECASE):
+            return reason
+    return None
+
+
 def apply_guardrails(
     pred: dict[str, Any],
     symptom_text: str,
     inferred_decision: str,
 ) -> tuple[str, str | None]:
-    if inferred_decision == "REFER_URGENT":
-        return inferred_decision, None
-
     objective = _objective_text(pred, symptom_text)
     diagnostic = _diagnostic_text(pred)
 
-    triggered, reason = _check_muac(objective)
-    if triggered:
-        return "REFER_URGENT", reason
+    objective_urgent_reason = _urgent_objective_reason(objective)
+    if objective_urgent_reason:
+        return "REFER_URGENT", objective_urgent_reason
 
-    for pattern, reason in OBJECTIVE_URGENT_PATTERNS:
-        if re.search(pattern, objective, re.IGNORECASE):
-            return "REFER_URGENT", reason
+    routine_reason = _routine_override_reason(objective, diagnostic)
+    if routine_reason:
+        return "REFER_ROUTINE", routine_reason
+
+    if inferred_decision == "REFER_URGENT":
+        return inferred_decision, None
+
 
     for pattern, reason in DIAGNOSIS_URGENT_PATTERNS:
         if re.search(pattern, diagnostic, re.IGNORECASE):

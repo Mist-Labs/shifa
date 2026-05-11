@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from typing import Any
 
 from common import env, extract_json_object, normalize_text, read_jsonl, resolve_path, write_json
@@ -293,6 +294,29 @@ def print_failure_detail(
         print(f"      raw: {raw_preview}")
 
 
+def upload_validation_artifacts() -> None:
+    if env("SHIFA_AUTO_UPLOAD_AFTER_VALIDATE", "1") == "0":
+        print("Skipping validation upload; SHIFA_AUTO_UPLOAD_AFTER_VALIDATE=0")
+        return
+
+    ml_root = str(resolve_path("."))
+    if ml_root not in sys.path:
+        sys.path.insert(0, ml_root)
+
+    try:
+        from scripts.upload_artifacts import main as upload_artifacts
+    except Exception as exc:
+        print(f"Skipping validation upload; could not import uploader: {exc}")
+        return
+
+    try:
+        print("Uploading validation artifacts to R2...")
+        upload_artifacts()
+        print("Validation artifacts uploaded to R2.")
+    except Exception as exc:
+        print(f"Validation upload failed after report was written: {exc}")
+
+
 def main() -> None:
     try:
         from unsloth import FastLanguageModel
@@ -450,6 +474,7 @@ def main() -> None:
     print(f"Over-referral rate:   {metrics['over_referral_rate'] * 100:.1f}%")
     print(f"Guardrail overrides:  {totals['guardrail_overrides']}/{n}")
     print(f"Report: {resolve_path(report_path)}")
+    upload_validation_artifacts()
 
 
 if __name__ == "__main__":
