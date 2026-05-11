@@ -3424,16 +3424,18 @@ This checklist is the submission QA gate. Every item must be checked before May 
 ### 🔧 Technical Completeness
 
 #### Native Modules (all must be in MainApplication.kt)
-- [ ] Generate native Android project with `npx expo prebuild --platform android` after current JS/mobile flow is committed
-- [ ] Add `expo-dev-client` and produce a custom APK; Expo Go cannot load LiteRT/Kotlin modules
-- [ ] Add Gradle dependencies for `com.google.mediapipe:tasks-genai` / LiteRT-LM after the Android project exists
-- [ ] `MediaPipeLLMPackage` — LiteRT LLM
-- [ ] `MediaPipeLLMModule.kt` loads the local SHIFA model artifact and exposes `init`, `generate`, and `stream` to React Native
-- [ ] TypeScript `litertEngine.ts` calls the native module and falls back only when the native runtime is unavailable
+- [x] Generate native Android project with `npx expo prebuild --platform android`
+- [x] Add `expo-dev-client`; Expo Go cannot load LiteRT/Kotlin modules
+- [ ] Produce and install a custom APK on a physical Android device
+- [x] Add Gradle dependency for `com.google.mediapipe:tasks-genai`
+- [x] `ShifaLiteRTPackage` — native LiteRT LLM package registered in `MainApplication.kt`
+- [x] `ShifaLiteRTModule.kt` loads the local SHIFA runtime model artifact and exposes `init`, `generate`, `sizeInTokens`, `isReady`, and `close` to React Native
+- [x] TypeScript `litertEngine.ts` calls the native module and falls back when the native runtime/artifact is unavailable
+- [ ] Add streaming token callback support after APK smoke test confirms base `generate` path
 - [ ] `GuardPackage` — YOLO-NAS visual detection
 - [ ] `AudioGuardPackage` — YAMNet audio
 - [ ] `CoquiTTSPackage` — Coqui TTS 6 languages
-- [ ] `react-native-ble-plx` package auto-linked via prebuild
+- [x] `react-native-ble-plx` package auto-linked via prebuild
 
 #### Native LiteRT Blocker To Clear Next
 - [ ] Export or obtain a LiteRT-LM compatible SHIFA clinical artifact; the current R2 upload is a LoRA adapter bundle, not yet a standalone mobile LiteRT runtime package

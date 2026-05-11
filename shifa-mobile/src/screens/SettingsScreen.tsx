@@ -335,19 +335,19 @@ export default function SettingsScreen() {
           <ReadinessRow
             icon={<Cloud color={isGeminiConfigured() ? colors.green : colors.amber} size={20} />}
             label="Clinical AI"
-            value={modelStatus?.ready ? 'Model artifacts on device' : isGeminiConfigured() ? 'Cloud fallback configured' : 'Protocol rules only'}
-            tone={modelStatus?.ready || isGeminiConfigured() ? 'good' : 'warn'}
+            value={modelStatus?.runtimeReady ? 'LiteRT runtime model on device' : isGeminiConfigured() ? 'Cloud fallback configured' : 'Protocol rules only'}
+            tone={modelStatus?.runtimeReady || isGeminiConfigured() ? 'good' : 'warn'}
             dim={darkMode}
           />
           <ReadinessRow
-            icon={<Download color={modelStatus?.ready ? colors.green : colors.amber} size={20} />}
+            icon={<Download color={modelStatus?.runtimeReady ? colors.green : modelStatus?.ready ? colors.amber : colors.amber} size={20} />}
             label="Model files"
             value={
               modelStatus?.configured
-                ? `${modelStatus.downloadedCount}/${modelStatus.requiredCount} required files • ${formatBytes(modelStatus.totalBytes)}`
+                ? `${modelStatus.runtimeReady ? 'runtime ready' : 'adapter only'} • ${modelStatus.downloadedCount}/${modelStatus.requiredCount} required files • ${formatBytes(modelStatus.totalBytes)}`
                 : 'Set EXPO_PUBLIC_SHIFA_MODEL_BASE_URL'
             }
-            tone={modelStatus?.ready ? 'good' : 'warn'}
+            tone={modelStatus?.runtimeReady ? 'good' : 'warn'}
             dim={darkMode}
           />
           <ReadinessRow
@@ -371,7 +371,7 @@ export default function SettingsScreen() {
             disabled={!modelStatus?.configured || modelDownloading}
           >
             <Download color={colors.white} size={18} />
-            <Text style={styles.modelDownloadText}>{modelDownloading ? modelDownloadLabel : modelStatus?.ready ? 'Refresh model artifacts' : 'Download model artifacts'}</Text>
+            <Text style={styles.modelDownloadText}>{modelDownloading ? modelDownloadLabel : modelStatus?.runtimeReady ? 'Refresh model artifacts' : 'Download model artifacts'}</Text>
           </TouchableOpacity>
         </View>
 

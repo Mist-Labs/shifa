@@ -1,6 +1,7 @@
 import { ClinicalDecision, evaluateFieldProtocol } from './caseLog';
 import { analyzeCloudClinicalCase, EvidenceAsset, isGeminiConfigured, ShifaAIError } from './gemini';
 import { DecisionValue, inferDecision, normalizeDecision } from './clinicalContract';
+import { analyzeWithLiteRT } from './litertEngine';
 
 interface ClinicalEngineInput {
   symptomText: string;
@@ -8,6 +9,8 @@ interface ClinicalEngineInput {
   weightKg?: number;
   muacCm?: number;
   bilateralEdema: boolean;
+  country: string;
+  language: string;
   evidence: EvidenceAsset[];
   online: boolean;
 }
@@ -49,7 +52,10 @@ const ROUTINE_OVERRIDE_PATTERNS: Array<[RegExp, string]> = [
 export async function analyzeClinicalCase(input: ClinicalEngineInput): Promise<ClinicalDecision> {
   let decision: ClinicalDecision;
 
-  if (input.online && isGeminiConfigured()) {
+  const localDecision = await analyzeWithLiteRT(input).catch(() => null);
+  if (localDecision) {
+    decision = localDecision;
+  } else if (input.online && isGeminiConfigured()) {
     try {
       decision = await analyzeCloudClinicalCase(input);
     } catch (error) {

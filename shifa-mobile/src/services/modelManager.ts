@@ -4,6 +4,9 @@ const MODEL_BASE_URL = (process.env.EXPO_PUBLIC_SHIFA_MODEL_BASE_URL || '').repl
 const MODEL_DIR = `${FileSystem.documentDirectory ?? ''}models/shifa-gemma4-e4b-finetuned/`;
 
 const MODEL_ARTIFACTS = [
+  { key: 'models/shifa-gemma4-e4b-finetuned/shifa-gemma4-e4b-finetuned.litertlm', filename: 'shifa-gemma4-e4b-finetuned.litertlm', required: false, runtime: true },
+  { key: 'models/shifa-gemma4-e4b-finetuned/shifa-gemma4-e4b-finetuned.task', filename: 'shifa-gemma4-e4b-finetuned.task', required: false, runtime: true },
+  { key: 'models/shifa-gemma4-e4b-finetuned.tflite', filename: 'shifa-gemma4-e4b-finetuned.tflite', required: false, runtime: true },
   { key: 'models/shifa-gemma4-e4b-finetuned/adapter_config.json', filename: 'adapter_config.json', required: true },
   { key: 'models/shifa-gemma4-e4b-finetuned/adapter_model.safetensors', filename: 'adapter_model.safetensors', required: true },
   { key: 'models/shifa-gemma4-e4b-finetuned/tokenizer.json', filename: 'tokenizer.json', required: true },
@@ -17,6 +20,8 @@ export interface ModelArtifactStatus {
   ready: boolean;
   downloadedCount: number;
   requiredCount: number;
+  runtimeReady: boolean;
+  runtimeModelPath?: string;
   totalBytes: number;
   directory: string;
   baseUrl: string;
@@ -39,9 +44,12 @@ export async function getClinicalModelStatus(): Promise<ModelArtifactStatus> {
     })
   );
   const required = statuses.filter((item) => item.artifact.required);
+  const runtime = statuses.find((item) => item.artifact.runtime && item.exists);
   return {
     configured: Boolean(MODEL_BASE_URL),
     ready: required.every((item) => item.exists),
+    runtimeReady: Boolean(runtime),
+    runtimeModelPath: runtime ? `${MODEL_DIR}${runtime.artifact.filename}` : undefined,
     downloadedCount: statuses.filter((item) => item.exists).length,
     requiredCount: required.length,
     totalBytes: statuses.reduce((sum, item) => sum + item.size, 0),
@@ -49,6 +57,11 @@ export async function getClinicalModelStatus(): Promise<ModelArtifactStatus> {
     baseUrl: MODEL_BASE_URL,
     missing: required.filter((item) => !item.exists).map((item) => item.artifact.filename),
   };
+}
+
+export async function getLiteRTModelPath(): Promise<string | null> {
+  const status = await getClinicalModelStatus();
+  return status.runtimeModelPath ?? null;
 }
 
 export async function downloadClinicalModelArtifacts(onProgress?: (done: number, total: number, filename: string) => void): Promise<ModelArtifactStatus> {
@@ -61,7 +74,11 @@ export async function downloadClinicalModelArtifacts(onProgress?: (done: number,
     const info = await FileSystem.getInfoAsync(localPath);
     if (!info.exists) {
       const remoteUrl = `${MODEL_BASE_URL}/${artifact.key}`;
-      await FileSystem.downloadAsync(remoteUrl, localPath);
+      try {
+        await FileSystem.downloadAsync(remoteUrl, localPath);
+      } catch (error) {
+        if (artifact.required) throw error;
+      }
     }
     onProgress?.(index + 1, MODEL_ARTIFACTS.length, artifact.filename);
   }

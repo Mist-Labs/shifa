@@ -5,6 +5,7 @@
 *.log
 .npmrc
 node_modules
+.gradle-cache/
 __pycache__/
 *.py[cod]
 *.pem

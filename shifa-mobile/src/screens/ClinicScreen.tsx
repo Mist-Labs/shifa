@@ -345,12 +345,15 @@ export default function ClinicScreen() {
     }
     setStage('processing');
     try {
+      const profile = await getActiveCHWProfile();
       const nextDecision = await analyzeClinicalCase({
         symptomText: symptoms,
         ageMonths: Number.isFinite(parsed.ageMonths) && parsed.ageMonths !== 0 ? parsed.ageMonths : undefined,
         weightKg: Number.isFinite(parsed.weightKg) && parsed.weightKg !== 0 ? parsed.weightKg : undefined,
         muacCm: Number.isFinite(parsed.muacCm) && parsed.muacCm !== 0 ? parsed.muacCm : undefined,
         bilateralEdema,
+        country: profile.country,
+        language: profile.language,
         evidence: clinicalEvidence,
         online,
       });
