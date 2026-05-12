@@ -21,7 +21,11 @@ DATA_ARTIFACTS = [
 MODEL_ARTIFACTS = [
     ("validation_metrics.json", "reports/validation_metrics.json"),
     ("training_manifest.json", "reports/training_manifest.json"),
-    ("shifa-gemma4-e4b-finetuned.tflite", "models/shifa-gemma4-e4b-finetuned.tflite"),
+    ("runtime_manifest.json", "reports/runtime_manifest.json"),
+    ("models/shifa-gemma4-e4b-finetuned/shifa-gemma4-e4b-finetuned.litertlm", "models/shifa-gemma4-e4b-finetuned/shifa-gemma4-e4b-finetuned.litertlm"),
+    ("models/shifa-gemma4-e4b-finetuned/shifa-gemma4-e4b-finetuned.task", "models/shifa-gemma4-e4b-finetuned/shifa-gemma4-e4b-finetuned.task"),
+    ("models/shifa-gemma4-e4b-finetuned/shifa-gemma4-e4b-finetuned.tflite", "models/shifa-gemma4-e4b-finetuned/shifa-gemma4-e4b-finetuned.tflite"),
+    ("shifa-gemma4-e4b-finetuned.tflite", "models/shifa-gemma4-e4b-finetuned/shifa-gemma4-e4b-finetuned.tflite"),
     ("models/shifa-gemma4-e4b-finetuned/chat_template.jinja", "models/shifa-gemma4-e4b-finetuned/chat_template.jinja"),
     ("models/shifa-gemma4-e4b-finetuned/README.md", "models/shifa-gemma4-e4b-finetuned/README.md"),
     ("models/shifa-gemma4-e4b-finetuned/processor_config.json", "models/shifa-gemma4-e4b-finetuned/processor_config.json"),

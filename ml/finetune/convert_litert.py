@@ -12,7 +12,7 @@ def main() -> None:
         raise SystemExit("Install ml/requirements.txt before LiteRT conversion") from exc
 
     model_dir = str(resolve_path(env("SHIFA_MODEL_DIR", "models/shifa-gemma4-e4b-finetuned")))
-    output = str(resolve_path(env("SHIFA_LITERT_OUTPUT", "models/shifa-gemma4-e4b-finetuned.tflite")))
+    output = str(resolve_path(env("SHIFA_LITERT_OUTPUT", "models/shifa-gemma4-e4b-finetuned/shifa-gemma4-e4b-finetuned.tflite")))
     output_path = resolve_path(output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 

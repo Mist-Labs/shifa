@@ -112,7 +112,12 @@ export default function SettingsScreen() {
         setModelDownloadLabel(`${done}/${total} ${filename}`);
       });
       setModelStatus(status);
-      Alert.alert('Model artifacts ready', 'SHIFA clinical model artifacts are stored on this device. Native LiteRT runtime integration is still required for fully local Gemma inference.');
+      Alert.alert(
+        'Model artifacts ready',
+        status.runtimeReady
+          ? 'A LiteRT runtime model is stored on this device. SHIFA will try local inference before cloud or protocol fallback.'
+          : 'Adapter artifacts are stored on this device. Add a .litertlm, .task, or .tflite runtime artifact to R2 for fully local Gemma inference.'
+      );
     } catch (error) {
       Alert.alert('Model download failed', error instanceof Error ? error.message : 'Unable to download model artifacts.');
     } finally {
@@ -344,7 +349,7 @@ export default function SettingsScreen() {
             label="Model files"
             value={
               modelStatus?.configured
-                ? `${modelStatus.runtimeReady ? 'runtime ready' : 'adapter only'} • ${modelStatus.downloadedCount}/${modelStatus.requiredCount} required files • ${formatBytes(modelStatus.totalBytes)}`
+                ? `${modelStatus.runtimeReady ? 'runtime ready' : 'adapter only'} • ${modelStatus.requiredDownloadedCount}/${modelStatus.requiredCount} required files • ${formatBytes(modelStatus.totalBytes)}`
                 : 'Set EXPO_PUBLIC_SHIFA_MODEL_BASE_URL'
             }
             tone={modelStatus?.runtimeReady ? 'good' : 'warn'}

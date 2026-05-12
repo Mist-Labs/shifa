@@ -6,6 +6,7 @@
 .npmrc
 node_modules
 .gradle-cache/
+*.tsbuildinfo
 __pycache__/
 *.py[cod]
 *.pem

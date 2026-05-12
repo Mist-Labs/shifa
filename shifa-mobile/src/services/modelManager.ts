@@ -6,7 +6,7 @@ const MODEL_DIR = `${FileSystem.documentDirectory ?? ''}models/shifa-gemma4-e4b-
 const MODEL_ARTIFACTS = [
   { key: 'models/shifa-gemma4-e4b-finetuned/shifa-gemma4-e4b-finetuned.litertlm', filename: 'shifa-gemma4-e4b-finetuned.litertlm', required: false, runtime: true },
   { key: 'models/shifa-gemma4-e4b-finetuned/shifa-gemma4-e4b-finetuned.task', filename: 'shifa-gemma4-e4b-finetuned.task', required: false, runtime: true },
-  { key: 'models/shifa-gemma4-e4b-finetuned.tflite', filename: 'shifa-gemma4-e4b-finetuned.tflite', required: false, runtime: true },
+  { key: 'models/shifa-gemma4-e4b-finetuned/shifa-gemma4-e4b-finetuned.tflite', filename: 'shifa-gemma4-e4b-finetuned.tflite', required: false, runtime: true },
   { key: 'models/shifa-gemma4-e4b-finetuned/adapter_config.json', filename: 'adapter_config.json', required: true },
   { key: 'models/shifa-gemma4-e4b-finetuned/adapter_model.safetensors', filename: 'adapter_model.safetensors', required: true },
   { key: 'models/shifa-gemma4-e4b-finetuned/tokenizer.json', filename: 'tokenizer.json', required: true },
@@ -19,6 +19,7 @@ export interface ModelArtifactStatus {
   configured: boolean;
   ready: boolean;
   downloadedCount: number;
+  requiredDownloadedCount: number;
   requiredCount: number;
   runtimeReady: boolean;
   runtimeModelPath?: string;
@@ -51,6 +52,7 @@ export async function getClinicalModelStatus(): Promise<ModelArtifactStatus> {
     runtimeReady: Boolean(runtime),
     runtimeModelPath: runtime ? `${MODEL_DIR}${runtime.artifact.filename}` : undefined,
     downloadedCount: statuses.filter((item) => item.exists).length,
+    requiredDownloadedCount: required.filter((item) => item.exists).length,
     requiredCount: required.length,
     totalBytes: statuses.reduce((sum, item) => sum + item.size, 0),
     directory: MODEL_DIR,
