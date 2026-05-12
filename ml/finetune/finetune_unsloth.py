@@ -114,6 +114,7 @@ def main() -> None:
         env("SHIFA_TRAINING_MANIFEST", "reports/training_manifest.json"),
         {
             "completed_at": datetime.now(timezone.utc).isoformat(),
+            "model_variant": env("SHIFA_MODEL_VARIANT", "e4b"),
             "base_model": base_model,
             "train_file": train_file,
             "model_dir": model_dir,

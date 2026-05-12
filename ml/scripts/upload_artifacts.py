@@ -40,6 +40,11 @@ def upload_file(client, bucket: str, path: Path, key: str) -> dict[str, str]:
     }
 
 
+def relative_key(path: Path) -> str:
+    root = resolve_path(".")
+    return str(path.relative_to(root)) if path.is_relative_to(root) else path.name
+
+
 def model_artifacts() -> list[tuple[Path, str]]:
     model_dir = resolve_path(env("SHIFA_MODEL_DIR", "models/shifa-gemma4-e4b-finetuned"))
     if not model_dir.exists():
@@ -48,8 +53,7 @@ def model_artifacts() -> list[tuple[Path, str]]:
     artifacts: list[tuple[Path, str]] = []
     for path in sorted(model_dir.rglob("*")):
         if path.is_file():
-            relative = path.relative_to(resolve_path("."))
-            artifacts.append((path, str(relative)))
+            artifacts.append((path, relative_key(path)))
     return artifacts
 
 
@@ -59,12 +63,17 @@ def runtime_artifacts() -> list[tuple[Path, str]]:
     candidates = [
         configured_output,
         model_dir / "shifa-gemma4-e4b-q4km.gguf",
+        model_dir / "shifa-gemma4-e2b-q4km.gguf",
         model_dir / "shifa.F16.gguf",
         resolve_path("shifa-gemma4-e4b-q4km.gguf"),
+        resolve_path("shifa-gemma4-e2b-q4km.gguf"),
         resolve_path("shifa.F16.gguf"),
         model_dir / "shifa-gemma4-e4b-finetuned.litertlm",
+        model_dir / "shifa-gemma4-e2b-finetuned.litertlm",
         model_dir / "shifa-gemma4-e4b-finetuned.task",
+        model_dir / "shifa-gemma4-e2b-finetuned.task",
         model_dir / "shifa-gemma4-e4b-finetuned.tflite",
+        model_dir / "shifa-gemma4-e2b-finetuned.tflite",
     ]
     artifacts: list[tuple[Path, str]] = []
     seen: set[Path] = set()
@@ -72,8 +81,7 @@ def runtime_artifacts() -> list[tuple[Path, str]]:
         if path in seen:
             continue
         seen.add(path)
-        relative = path.relative_to(resolve_path(".")) if path.is_relative_to(resolve_path(".")) else Path(path.name)
-        artifacts.append((path, str(relative)))
+        artifacts.append((path, relative_key(path)))
     return artifacts
 
 
@@ -100,8 +108,14 @@ def main() -> None:
         (resolve_path(env("SHIFA_TRAIN_FILE", "data/processed/training_final.jsonl")), "data/processed/training_final.jsonl"),
         (resolve_path(env("SHIFA_TEST_FILE", "data/test_cases/imci_test_60.jsonl")), "data/test_cases/imci_test_60.jsonl"),
         (resolve_path("data/processed/synthetic_cases_2000.jsonl"), "data/processed/synthetic_cases_2000.jsonl"),
-        (resolve_path(env("SHIFA_VALIDATION_REPORT", "reports/validation_metrics.json")), "validation_metrics.json"),
-        (resolve_path(env("SHIFA_TRAINING_MANIFEST", "reports/training_manifest.json")), "training_manifest.json"),
+        (
+            resolve_path(env("SHIFA_VALIDATION_REPORT", "reports/validation_metrics.json")),
+            env("SHIFA_VALIDATION_REPORT_KEY", "validation_metrics.json"),
+        ),
+        (
+            resolve_path(env("SHIFA_TRAINING_MANIFEST", "reports/training_manifest.json")),
+            env("SHIFA_TRAINING_MANIFEST_KEY", "training_manifest.json"),
+        ),
         (resolve_path("reports/runtime_manifest.json"), "runtime_manifest.json"),
         (resolve_path(env("SHIFA_GUARD_PT_MODEL", "models/shifa-guard-weapon-detector/best.pt")), "guard/shifa-guard-weapon-detector.pt"),
         (resolve_path(env("SHIFA_GUARD_TFLITE_MODEL", "models/shifa-guard-weapon-detector/shifa-guard-weapon-detector.tflite")), "guard/shifa-guard-weapon-detector.tflite"),

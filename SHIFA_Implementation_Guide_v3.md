@@ -3448,7 +3448,8 @@ This checklist is the submission QA gate. Every item must be checked before May 
 #### Model Files (all must download and verify on first launch)
 - [x] `shifa-gemma4-e4b-q4km.gguf` — quantized GGUF fallback uploaded to R2 for llama.cpp bridge testing
 - [ ] `shifa-gemma4-e4b-finetuned.litertlm` or `.tflite` — LiteRT E4B fine-tuned, benchmarked on 8GB+ Android
-- [ ] `shifa-gemma4-e2b.litertlm` or `.tflite` — LiteRT E2B/small-model fallback for 4-6GB Android
+- [ ] Train and validate `google/gemma-4-E2B-it` using `ml/E2B_TRAINING_RUNBOOK.md`
+- [ ] `shifa-gemma4-e2b.litertlm`, `.tflite`, or GGUF — E2B/small-model fallback for 4-6GB Android
 - [ ] MTP/speculative decoding drafter assets included where supported by LiteRT-LM
 - [ ] `yolo-nas-nano-threat.tflite` (~12MB) — SHIFA Guard visual
 - [ ] `yamnet.tflite` (~3MB) — SHIFA Guard audio
