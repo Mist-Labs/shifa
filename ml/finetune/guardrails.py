@@ -64,10 +64,10 @@ def _list_text(value: Any) -> str:
 
 
 def _objective_text(pred: dict[str, Any], symptom_text: str) -> str:
-    return " ".join([
-        symptom_text,
-        _list_text(pred.get("danger_signs")),
-    ])
+    # Guardrail overrides should be grounded in the original clinical intake.
+    # Model danger_signs are scored separately; using them here can turn a model
+    # hallucination into a deterministic emergency override.
+    return symptom_text
 
 
 def _diagnostic_text(pred: dict[str, Any]) -> str:
@@ -82,9 +82,25 @@ def _urgent_objective_reason(objective: str) -> str | None:
     if triggered:
         return reason
     for pattern, reason in OBJECTIVE_URGENT_PATTERNS:
-        if re.search(pattern, objective, re.IGNORECASE):
+        if _has_non_negated_match(pattern, objective):
             return reason
     return None
+
+
+def _has_non_negated_match(pattern: str, text: str) -> bool:
+    for match in re.finditer(pattern, text, re.IGNORECASE):
+        if not _is_negated_match(text, match.start(), match.end()):
+            return True
+    return False
+
+
+def _is_negated_match(text: str, start: int, end: int) -> bool:
+    before = text[max(0, start - 50):start].lower()
+    after = text[end:end + 30].lower()
+    return bool(
+        re.search(r"\b(no|none|without|denies|denied|absent|negative\s+for)\b[\w\s:,-]{0,40}$", before)
+        or re.match(r"\s*:\s*(no|none|absent|negative)\b", after)
+    )
 
 
 def _routine_override_reason(objective: str, diagnostic: str) -> str | None:
