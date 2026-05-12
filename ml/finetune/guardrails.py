@@ -47,14 +47,20 @@ ROUTINE_OVERRIDE_PATTERNS: list[tuple[str, str]] = [
 
 
 def _check_muac(text: str) -> tuple[bool, str | None]:
+    value = _muac_value(text)
+    if value is not None and value < MUAC_URGENT_THRESHOLD_CM:
+        return True, f"MUAC {value:g}cm < {MUAC_URGENT_THRESHOLD_CM}cm"
+    return False, None
+
+
+def _muac_value(text: str) -> float | None:
     matches = re.findall(r"muac[:\s=]*([0-9]+(?:\.[0-9]+)?)\s*(?:cm)?", text, re.IGNORECASE)
     for value in matches:
         try:
-            if float(value) < MUAC_URGENT_THRESHOLD_CM:
-                return True, f"MUAC {value}cm < {MUAC_URGENT_THRESHOLD_CM}cm"
+            return float(value)
         except ValueError:
             continue
-    return False, None
+    return None
 
 
 def _list_text(value: Any) -> str:
@@ -111,6 +117,31 @@ def _routine_override_reason(objective: str, diagnostic: str) -> str | None:
     return None
 
 
+def _treat_override_reason(objective: str, diagnostic: str) -> str | None:
+    text = f"{objective} {diagnostic}".lower()
+    muac = _muac_value(objective)
+    edema_absent = re.search(r"bilateral\s+edema\s*:\s*no|bipedal\s+edema\s*:\s*no", objective, re.IGNORECASE)
+    if (
+        muac is not None
+        and muac >= MUAC_URGENT_THRESHOLD_CM
+        and edema_absent
+        and re.search(r"poor\s+appetite|malnutrition|mam|moderate", text)
+    ):
+        return "Moderate malnutrition without SAM danger signs"
+
+    has_respiratory_symptom = re.search(r"cough|fast\s+breathing|pneumonia|acute\s+respiratory", text)
+    has_non_severe_signals = re.search(r"alert|able\s+to\s+drink|no\s+danger\s+signs", objective, re.IGNORECASE)
+    has_severe_respiratory_sign = re.search(
+        r"chest\s+indrawing|stridor|severe\s+respiratory\s+distress|unable\s+to\s+drink|letharg",
+        objective,
+        re.IGNORECASE,
+    )
+    if has_respiratory_symptom and has_non_severe_signals and not has_severe_respiratory_sign:
+        return "Non-severe pneumonia/ARI without emergency danger signs"
+
+    return None
+
+
 def apply_guardrails(
     pred: dict[str, Any],
     symptom_text: str,
@@ -127,9 +158,12 @@ def apply_guardrails(
     if routine_reason:
         return "REFER_ROUTINE", routine_reason
 
+    treat_reason = _treat_override_reason(objective, diagnostic)
+    if treat_reason and inferred_decision == "REFER_URGENT":
+        return "TREAT", treat_reason
+
     if inferred_decision == "REFER_URGENT":
         return inferred_decision, None
-
 
     for pattern, reason in DIAGNOSIS_URGENT_PATTERNS:
         if re.search(pattern, diagnostic, re.IGNORECASE):
