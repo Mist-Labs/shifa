@@ -146,28 +146,84 @@ def _extract_list_field(raw: str, key: str) -> list[Any] | None:
     return value if isinstance(value, list) else None
 
 
+def _json_object_end(text: str) -> int | None:
+    start = text.find("{")
+    if start < 0:
+        return None
+    depth = 0
+    in_string = False
+    escaped = False
+    for index, char in enumerate(text[start:], start):
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            continue
+        if char == '"':
+            in_string = True
+        elif char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                return index + 1
+    return None
+
+
+def trim_to_json_object(raw: str) -> str:
+    start = raw.find("{")
+    end = _json_object_end(raw)
+    if start >= 0 and end is not None:
+        return raw[start:end]
+    return raw
+
+
+def salvage_prediction_fields(raw: str) -> dict[str, Any]:
+    partial: dict[str, Any] = {}
+    for key in ("decision", "primary_diagnosis", "referral", "monitoring", "reasoning_trace", "voice_response"):
+        value = _extract_string_field(raw, key)
+        if value is not None:
+            partial[key] = value
+    for key in ("differential_diagnoses", "danger_signs", "treatment_protocol"):
+        value = _extract_list_field(raw, key)
+        if value is not None:
+            partial[key] = value
+    confidence = _extract_number_field(raw, "confidence")
+    if confidence is not None:
+        partial["confidence"] = confidence
+    return partial
+
+
 def parse_prediction(raw: str) -> dict[str, Any]:
+    raw = trim_to_json_object(raw)
+    salvaged = salvage_prediction_fields(raw)
     try:
-        return extract_json_object(raw)
+        pred = extract_json_object(raw)
     except Exception as exc:
-        partial: dict[str, Any] = {"parse_warning": str(exc)}
-        for key in ("decision", "primary_diagnosis", "referral", "monitoring", "reasoning_trace", "voice_response"):
-            value = _extract_string_field(raw, key)
-            if value is not None:
-                partial[key] = value
-        for key in ("differential_diagnoses", "danger_signs", "treatment_protocol"):
-            value = _extract_list_field(raw, key)
-            if value is not None:
-                partial[key] = value
-        confidence = _extract_number_field(raw, "confidence")
-        if confidence is not None:
-            partial["confidence"] = confidence
-        if len(partial) == 1:
+        if not salvaged:
             raise
-        return partial
+        salvaged["parse_warning"] = str(exc)
+        return salvaged
+    for key, value in salvaged.items():
+        pred.setdefault(key, value)
+    return pred
+
+
+def compact_validation_prompt(system_prompt: str) -> str:
+    if env("SHIFA_COMPACT_VALIDATION_PROMPT", "1") == "0":
+        return system_prompt
+    return (
+        f"{system_prompt}\n"
+        "For validation, keep every string field concise. Use at most one short sentence "
+        "per string value. Close the JSON object immediately after voice_response."
+    )
 
 
 def build_prompt(tokenizer: Any, system_prompt: str, symptom_text: str) -> str:
+    system_prompt = compact_validation_prompt(system_prompt)
     messages = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": symptom_text},
@@ -190,6 +246,19 @@ def build_prompt(tokenizer: Any, system_prompt: str, symptom_text: str) -> str:
 
 def run_inference(model: Any, tokenizer: Any, prompt: str, max_new_tokens: int = 2048) -> str:
     import torch
+    from transformers import StoppingCriteria, StoppingCriteriaList
+
+    class CompleteJsonStoppingCriteria(StoppingCriteria):
+        def __init__(self, prompt_token_count: int) -> None:
+            self.prompt_token_count = prompt_token_count
+
+        def __call__(self, input_ids: Any, scores: Any, **kwargs: Any) -> bool:
+            generated_count = input_ids.shape[-1] - self.prompt_token_count
+            if generated_count < 24 or generated_count % 8 != 0:
+                return False
+            generated_tokens = input_ids[0][self.prompt_token_count:]
+            text = tokenizer.decode(generated_tokens, skip_special_tokens=True)
+            return _json_object_end(text) is not None
 
     # text= keyword required — unsloth patches Gemma4 tokenizer into a multimodal processor
     # that does not accept positional text arguments.
@@ -201,9 +270,10 @@ def run_inference(model: Any, tokenizer: Any, prompt: str, max_new_tokens: int =
             max_new_tokens=max_new_tokens,
             do_sample=False,
             eos_token_id=tokenizer.eos_token_id,
+            stopping_criteria=StoppingCriteriaList([CompleteJsonStoppingCriteria(input_token_count)]),
         )
     generated_tokens = output[0][input_token_count:]
-    return tokenizer.decode(generated_tokens, skip_special_tokens=True)
+    return trim_to_json_object(tokenizer.decode(generated_tokens, skip_special_tokens=True))
 
 
 def combined_text(pred: dict[str, Any]) -> str:
@@ -369,6 +439,8 @@ def print_failure_detail(
         print(f"      guarded: {guarded_decision} [{override_reason}]")
     if pred.get("error"):
         print(f"      error: {pred.get('error')}")
+    if pred.get("parse_warning"):
+        print(f"      parse warning: {pred.get('parse_warning')}")
     raw_preview = normalize_text(raw).replace("\n", " ")[:260]
     if raw_preview:
         print(f"      raw: {raw_preview}")
