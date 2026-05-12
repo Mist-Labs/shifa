@@ -139,7 +139,7 @@ def build_prompt(tokenizer: Any, system_prompt: str, symptom_text: str) -> str:
     )
 
 
-def run_inference(model: Any, tokenizer: Any, prompt: str, max_new_tokens: int = 1024) -> str:
+def run_inference(model: Any, tokenizer: Any, prompt: str, max_new_tokens: int = 2048) -> str:
     import torch
 
     # text= keyword required — unsloth patches Gemma4 tokenizer into a multimodal processor
@@ -264,7 +264,12 @@ def validate_drug_doses(pred: dict[str, Any], expected: dict[str, Any], case: di
     treatment = pred.get("treatment_protocol") or {}
     if isinstance(treatment, str):
         return True
-    drug_doses = treatment.get("drug_doses") or []
+    if isinstance(treatment, list):
+        drug_doses = treatment
+    elif isinstance(treatment, dict):
+        drug_doses = treatment.get("drug_doses") or []
+    else:
+        return True
     if not drug_doses:
         return True
     symptom_text = normalize_text(case.get("symptom_text"))
@@ -352,6 +357,7 @@ def main() -> None:
     test_file = env("SHIFA_TEST_CASES") or env("SHIFA_TEST_FILE", "data/test_cases/imci_test_60.jsonl")
     report_path = env("SHIFA_VALIDATION_REPORT", "reports/validation_metrics.json")
     max_seq_length = int(env("SHIFA_MAX_SEQ_LENGTH", "2048"))
+    max_new_tokens = int(env("SHIFA_MAX_NEW_TOKENS", "2048"))
 
     model, tokenizer = FastLanguageModel.from_pretrained(
         model_dir,
@@ -385,7 +391,7 @@ def main() -> None:
         raw = ""
         prompt = build_prompt(tokenizer, country_prompt(case["country"], case["language"]), case["symptom_text"])
         try:
-            raw = run_inference(model, tokenizer, prompt)
+            raw = run_inference(model, tokenizer, prompt, max_new_tokens=max_new_tokens)
             pred = extract_json_object(raw)
         except Exception as exc:
             pred = {"error": str(exc), "raw_response": raw[:2000]}
