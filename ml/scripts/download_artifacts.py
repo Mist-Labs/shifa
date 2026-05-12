@@ -22,6 +22,7 @@ MODEL_ARTIFACTS = [
     ("validation_metrics.json", "reports/validation_metrics.json"),
     ("training_manifest.json", "reports/training_manifest.json"),
     ("runtime_manifest.json", "reports/runtime_manifest.json"),
+    ("models/gguf/shifa-gemma4-e4b-q4km.gguf", "models/shifa-gemma4-e4b-finetuned/shifa-gemma4-e4b-q4km.gguf"),
     ("shifa-gemma4-e4b-q4km.gguf", "models/shifa-gemma4-e4b-finetuned/shifa-gemma4-e4b-q4km.gguf"),
     ("models/shifa-gemma4-e4b-finetuned/shifa-gemma4-e4b-q4km.gguf", "models/shifa-gemma4-e4b-finetuned/shifa-gemma4-e4b-q4km.gguf"),
     ("models/shifa-gemma4-e4b-finetuned/shifa-gemma4-e4b-finetuned.litertlm", "models/shifa-gemma4-e4b-finetuned/shifa-gemma4-e4b-finetuned.litertlm"),

@@ -3439,10 +3439,10 @@ This checklist is the submission QA gate. Every item must be checked before May 
 
 #### Native LiteRT Blocker To Clear Next
 - [ ] Export or obtain a LiteRT-LM compatible SHIFA clinical artifact; the current R2 upload is a LoRA adapter bundle, not yet a standalone mobile LiteRT runtime package
-- [x] Produce and upload the GGUF fallback runtime artifact: `shifa-gemma4-e4b-q4km.gguf`
-- [ ] Add the native llama.cpp bridge for GGUF execution; the existing `ShifaLiteRTModule` must not load GGUF files
+- [x] Produce and upload the GGUF fallback runtime artifact: `models/gguf/shifa-gemma4-e4b-q4km.gguf`
+- [x] Add the native llama.cpp bridge for GGUF execution via `llama.rn`; the existing `ShifaLiteRTModule` does not load GGUF files
 - [ ] Decide final LiteRT runtime artifact format: `.litertlm` preferred; `.tflite` only if Gemma 4 E4B export succeeds cleanly
-- [ ] Validate the artifact on a physical 8GB+ Android device in airplane mode
+- [ ] Validate the GGUF artifact on a physical 8GB+ Android device in airplane mode
 - [ ] Run the 60-case validation set through the APK and compare against Kaggle metrics before claiming offline Gemma 4 inference
 
 #### Model Files (all must download and verify on first launch)

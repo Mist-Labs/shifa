@@ -2,6 +2,7 @@ import { ClinicalDecision, evaluateFieldProtocol } from './caseLog';
 import { analyzeCloudClinicalCase, EvidenceAsset, isGeminiConfigured, ShifaAIError } from './gemini';
 import { DecisionValue, inferDecision, normalizeDecision } from './clinicalContract';
 import { analyzeWithLiteRT } from './litertEngine';
+import { analyzeWithLlama } from './llamaEngine';
 
 interface ClinicalEngineInput {
   symptomText: string;
@@ -55,18 +56,23 @@ export async function analyzeClinicalCase(input: ClinicalEngineInput): Promise<C
   const localDecision = await analyzeWithLiteRT(input).catch(() => null);
   if (localDecision) {
     decision = localDecision;
-  } else if (input.online && isGeminiConfigured()) {
-    try {
-      decision = await analyzeCloudClinicalCase(input);
-    } catch (error) {
-      if (error instanceof ShifaAIError && !error.retryable) throw error;
+  } else {
+    const ggufDecision = await analyzeWithLlama(input).catch(() => null);
+    if (ggufDecision) {
+      decision = ggufDecision;
+    } else if (input.online && isGeminiConfigured()) {
+      try {
+        decision = await analyzeCloudClinicalCase(input);
+      } catch (error) {
+        if (error instanceof ShifaAIError && !error.retryable) throw error;
+        decision = evaluateFieldProtocol(input);
+        decision.engineMode = 'protocol_fallback';
+        decision.summary = `${decision.summary}. Cloud fallback was unavailable; deterministic SHIFA safety rules were applied.`;
+      }
+    } else {
       decision = evaluateFieldProtocol(input);
       decision.engineMode = 'protocol_fallback';
-      decision.summary = `${decision.summary}. Cloud fallback was unavailable; deterministic SHIFA safety rules were applied.`;
     }
-  } else {
-    decision = evaluateFieldProtocol(input);
-    decision.engineMode = 'protocol_fallback';
   }
 
   return applyClinicalSafetyLayer(decision, input);

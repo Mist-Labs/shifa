@@ -9,7 +9,7 @@ const MODEL_ARTIFACTS = [
   { key: 'models/shifa-gemma4-e4b-finetuned/shifa-gemma4-e4b-finetuned.litertlm', filename: 'shifa-gemma4-e4b-finetuned.litertlm', required: false, runtime: true, runtimeKind: 'litert' as RuntimeKind },
   { key: 'models/shifa-gemma4-e4b-finetuned/shifa-gemma4-e4b-finetuned.task', filename: 'shifa-gemma4-e4b-finetuned.task', required: false, runtime: true, runtimeKind: 'litert' as RuntimeKind },
   { key: 'models/shifa-gemma4-e4b-finetuned/shifa-gemma4-e4b-finetuned.tflite', filename: 'shifa-gemma4-e4b-finetuned.tflite', required: false, runtime: true, runtimeKind: 'litert' as RuntimeKind },
-  { key: 'shifa-gemma4-e4b-q4km.gguf', filename: 'shifa-gemma4-e4b-q4km.gguf', required: false, runtime: true, runtimeKind: 'gguf' as RuntimeKind },
+  { key: 'models/gguf/shifa-gemma4-e4b-q4km.gguf', filename: 'shifa-gemma4-e4b-q4km.gguf', required: false, runtime: true, runtimeKind: 'gguf' as RuntimeKind },
   { key: 'models/shifa-gemma4-e4b-finetuned/adapter_config.json', filename: 'adapter_config.json', required: true },
   { key: 'models/shifa-gemma4-e4b-finetuned/adapter_model.safetensors', filename: 'adapter_model.safetensors', required: true },
   { key: 'models/shifa-gemma4-e4b-finetuned/tokenizer.json', filename: 'tokenizer.json', required: true },
@@ -77,6 +77,11 @@ export async function getClinicalModelStatus(): Promise<ModelArtifactStatus> {
 export async function getLiteRTModelPath(): Promise<string | null> {
   const status = await getClinicalModelStatus();
   return status.liteRTModelPath ?? null;
+}
+
+export async function getGGUFModelPath(): Promise<string | null> {
+  const status = await getClinicalModelStatus();
+  return status.ggufModelPath ?? null;
 }
 
 export async function downloadClinicalModelArtifacts(onProgress?: (done: number, total: number, filename: string) => void): Promise<ModelArtifactStatus> {

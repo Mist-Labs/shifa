@@ -45,6 +45,12 @@
       "expo-audio",
       "expo-asset",
       [
+        "llama.rn",
+        {
+          "enableOpenCLAndHexagon": true
+        }
+      ],
+      [
         "react-native-ble-plx",
         {
           "isBackgroundEnabled": true,

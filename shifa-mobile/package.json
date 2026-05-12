@@ -24,6 +24,7 @@
     "expo-file-system": "~55.0.19",
     "expo-location": "~55.1.9",
     "expo-sqlite": "~55.0.15",
+    "llama.rn": "^0.12.0",
     "lucide-react-native": "^1.14.0",
     "react": "19.2.0",
     "react-native": "0.83.6",

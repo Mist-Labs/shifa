@@ -135,9 +135,9 @@ Three export paths were attempted:
 ### Current Status
 
 - F16 GGUF exported successfully to `/tmp/shifa-gemma4-gguf/shifa.F16.gguf`
-- Q4_K_M GGUF exported and uploaded to R2 as `shifa-gemma4-e4b-q4km.gguf`
+- Q4_K_M GGUF exported and uploaded to R2 as `models/gguf/shifa-gemma4-e4b-q4km.gguf`
 - LiteRT `.litertlm` export is blocked by RAM and likely requires a larger instance
-- Mobile app ships with Gemini API cloud fallback for demo; GGUF is now packaged for the next native llama.cpp runtime milestone
+- Mobile app includes a native `llama.rn` bridge for GGUF execution, with Gemini API cloud fallback retained for demo safety until physical-device testing is complete
 
 ## 6. Disk & Memory Constraints on Kaggle
 
