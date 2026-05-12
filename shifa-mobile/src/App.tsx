@@ -27,6 +27,7 @@ import { I18nProvider, saveLanguagePreference, toAppLanguage } from './services/
 const Tab = createBottomTabNavigator();
 
 type OnboardingStep = 'splash' | 'country' | 'language' | 'done';
+const SPLASH_DURATION_MS = 1500;
 
 const countries = [
   { label: 'Sudan', local: 'السودان', flag: '🇸🇩' },
@@ -77,6 +78,16 @@ export default function App() {
     return unsubscribe;
   }, []);
 
+  useEffect(() => {
+    if (loading || onboardingStep !== 'splash') return;
+
+    const timer = setTimeout(() => {
+      setOnboardingStep('done');
+    }, SPLASH_DURATION_MS);
+
+    return () => clearTimeout(timer);
+  }, [loading, onboardingStep]);
+
   if (loading) {
     return (
       <SafeAreaView style={styles.loading}>
@@ -103,7 +114,12 @@ export default function App() {
               <View style={styles.dot} />
             </View>
             <Text style={styles.splashStatus}>Offline • Private • Secure</Text>
-            <TouchableOpacity style={styles.hiddenAdvance} onPress={() => setOnboardingStep('country')} />
+            <TouchableOpacity
+              accessibilityLabel="Continue to patient consultation"
+              accessibilityRole="button"
+              style={styles.hiddenAdvance}
+              onPress={() => setOnboardingStep('done')}
+            />
           </View>
         )}
 

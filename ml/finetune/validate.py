@@ -118,12 +118,34 @@ PROTOCOL_DIAGNOSIS_SYNONYMS: dict[str, list[str]] = {
 }
 
 
+def build_prompt(tokenizer: Any, system_prompt: str, symptom_text: str) -> str:
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": symptom_text},
+    ]
+    if hasattr(tokenizer, "apply_chat_template"):
+        try:
+            return tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True,
+            )
+        except Exception:
+            pass
+    return (
+        f"<start_of_turn>system\n{system_prompt}<end_of_turn>\n"
+        f"<start_of_turn>user\n{symptom_text}<end_of_turn>\n"
+        "<start_of_turn>model\n"
+    )
+
+
 def run_inference(model: Any, tokenizer: Any, prompt: str, max_new_tokens: int = 1024) -> str:
     import torch
 
     # text= keyword required — unsloth patches Gemma4 tokenizer into a multimodal processor
     # that does not accept positional text arguments.
     inputs = tokenizer(text=prompt, return_tensors="pt").to(model.device)
+    input_token_count = inputs["input_ids"].shape[-1]
     with torch.no_grad():
         output = model.generate(
             **inputs,
@@ -131,8 +153,8 @@ def run_inference(model: Any, tokenizer: Any, prompt: str, max_new_tokens: int =
             do_sample=False,
             eos_token_id=tokenizer.eos_token_id,
         )
-    decoded = tokenizer.decode(output[0], skip_special_tokens=True)
-    return decoded[len(prompt):] if decoded.startswith(prompt) else decoded
+    generated_tokens = output[0][input_token_count:]
+    return tokenizer.decode(generated_tokens, skip_special_tokens=True)
 
 
 def combined_text(pred: dict[str, Any]) -> str:
@@ -361,11 +383,7 @@ def main() -> None:
 
     for i, case in enumerate(cases, 1):
         raw = ""
-        prompt = (
-            f"<start_of_turn>system\n{country_prompt(case['country'], case['language'])}<end_of_turn>\n"
-            f"<start_of_turn>user\n{case['symptom_text']}<end_of_turn>\n"
-            "<start_of_turn>model\n"
-        )
+        prompt = build_prompt(tokenizer, country_prompt(case["country"], case["language"]), case["symptom_text"])
         try:
             raw = run_inference(model, tokenizer, prompt)
             pred = extract_json_object(raw)
