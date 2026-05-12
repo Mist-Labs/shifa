@@ -12,7 +12,7 @@ import requests
 
 from finetune.common import env, resolve_path, write_json
 
-RUNTIME_EXTENSIONS = {".litertlm", ".task", ".tflite"}
+RUNTIME_EXTENSIONS = {".gguf", ".litertlm", ".task", ".tflite"}
 
 
 def runtime_output_path(source: str) -> Path:
@@ -62,8 +62,8 @@ def main() -> None:
     source = env("SHIFA_LITERT_SOURCE", "")
     if not source:
         raise SystemExit(
-            "Set SHIFA_LITERT_SOURCE to a local or HTTPS .litertlm/.task/.tflite file. "
-            "The current LoRA adapter cannot be uploaded as a standalone LiteRT runtime artifact."
+            "Set SHIFA_LITERT_SOURCE to a local or HTTPS .gguf/.litertlm/.task/.tflite file. "
+            "The current LoRA adapter cannot be uploaded as a standalone mobile runtime artifact."
         )
 
     output = runtime_output_path(source)

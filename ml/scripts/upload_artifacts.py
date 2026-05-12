@@ -58,6 +58,10 @@ def runtime_artifacts() -> list[tuple[Path, str]]:
     configured_output = resolve_path(env("SHIFA_LITERT_OUTPUT", "models/shifa-gemma4-e4b-finetuned/shifa-gemma4-e4b-finetuned.litertlm"))
     candidates = [
         configured_output,
+        model_dir / "shifa-gemma4-e4b-q4km.gguf",
+        model_dir / "shifa.F16.gguf",
+        resolve_path("shifa-gemma4-e4b-q4km.gguf"),
+        resolve_path("shifa.F16.gguf"),
         model_dir / "shifa-gemma4-e4b-finetuned.litertlm",
         model_dir / "shifa-gemma4-e4b-finetuned.task",
         model_dir / "shifa-gemma4-e4b-finetuned.tflite",

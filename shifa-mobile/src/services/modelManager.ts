@@ -3,10 +3,13 @@ import * as FileSystem from 'expo-file-system/legacy';
 const MODEL_BASE_URL = (process.env.EXPO_PUBLIC_SHIFA_MODEL_BASE_URL || '').replace(/\/$/, '');
 const MODEL_DIR = `${FileSystem.documentDirectory ?? ''}models/shifa-gemma4-e4b-finetuned/`;
 
+type RuntimeKind = 'litert' | 'gguf';
+
 const MODEL_ARTIFACTS = [
-  { key: 'models/shifa-gemma4-e4b-finetuned/shifa-gemma4-e4b-finetuned.litertlm', filename: 'shifa-gemma4-e4b-finetuned.litertlm', required: false, runtime: true },
-  { key: 'models/shifa-gemma4-e4b-finetuned/shifa-gemma4-e4b-finetuned.task', filename: 'shifa-gemma4-e4b-finetuned.task', required: false, runtime: true },
-  { key: 'models/shifa-gemma4-e4b-finetuned/shifa-gemma4-e4b-finetuned.tflite', filename: 'shifa-gemma4-e4b-finetuned.tflite', required: false, runtime: true },
+  { key: 'models/shifa-gemma4-e4b-finetuned/shifa-gemma4-e4b-finetuned.litertlm', filename: 'shifa-gemma4-e4b-finetuned.litertlm', required: false, runtime: true, runtimeKind: 'litert' as RuntimeKind },
+  { key: 'models/shifa-gemma4-e4b-finetuned/shifa-gemma4-e4b-finetuned.task', filename: 'shifa-gemma4-e4b-finetuned.task', required: false, runtime: true, runtimeKind: 'litert' as RuntimeKind },
+  { key: 'models/shifa-gemma4-e4b-finetuned/shifa-gemma4-e4b-finetuned.tflite', filename: 'shifa-gemma4-e4b-finetuned.tflite', required: false, runtime: true, runtimeKind: 'litert' as RuntimeKind },
+  { key: 'shifa-gemma4-e4b-q4km.gguf', filename: 'shifa-gemma4-e4b-q4km.gguf', required: false, runtime: true, runtimeKind: 'gguf' as RuntimeKind },
   { key: 'models/shifa-gemma4-e4b-finetuned/adapter_config.json', filename: 'adapter_config.json', required: true },
   { key: 'models/shifa-gemma4-e4b-finetuned/adapter_model.safetensors', filename: 'adapter_model.safetensors', required: true },
   { key: 'models/shifa-gemma4-e4b-finetuned/tokenizer.json', filename: 'tokenizer.json', required: true },
@@ -23,6 +26,10 @@ export interface ModelArtifactStatus {
   requiredCount: number;
   runtimeReady: boolean;
   runtimeModelPath?: string;
+  liteRTRuntimeReady: boolean;
+  liteRTModelPath?: string;
+  ggufRuntimeReady: boolean;
+  ggufModelPath?: string;
   totalBytes: number;
   directory: string;
   baseUrl: string;
@@ -46,11 +53,17 @@ export async function getClinicalModelStatus(): Promise<ModelArtifactStatus> {
   );
   const required = statuses.filter((item) => item.artifact.required);
   const runtime = statuses.find((item) => item.artifact.runtime && item.exists);
+  const liteRTRuntime = statuses.find((item) => item.artifact.runtimeKind === 'litert' && item.exists);
+  const ggufRuntime = statuses.find((item) => item.artifact.runtimeKind === 'gguf' && item.exists);
   return {
     configured: Boolean(MODEL_BASE_URL),
     ready: required.every((item) => item.exists),
     runtimeReady: Boolean(runtime),
     runtimeModelPath: runtime ? `${MODEL_DIR}${runtime.artifact.filename}` : undefined,
+    liteRTRuntimeReady: Boolean(liteRTRuntime),
+    liteRTModelPath: liteRTRuntime ? `${MODEL_DIR}${liteRTRuntime.artifact.filename}` : undefined,
+    ggufRuntimeReady: Boolean(ggufRuntime),
+    ggufModelPath: ggufRuntime ? `${MODEL_DIR}${ggufRuntime.artifact.filename}` : undefined,
     downloadedCount: statuses.filter((item) => item.exists).length,
     requiredDownloadedCount: required.filter((item) => item.exists).length,
     requiredCount: required.length,
@@ -63,7 +76,7 @@ export async function getClinicalModelStatus(): Promise<ModelArtifactStatus> {
 
 export async function getLiteRTModelPath(): Promise<string | null> {
   const status = await getClinicalModelStatus();
-  return status.runtimeModelPath ?? null;
+  return status.liteRTModelPath ?? null;
 }
 
 export async function downloadClinicalModelArtifacts(onProgress?: (done: number, total: number, filename: string) => void): Promise<ModelArtifactStatus> {

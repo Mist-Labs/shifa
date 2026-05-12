@@ -112,11 +112,14 @@ export default function SettingsScreen() {
         setModelDownloadLabel(`${done}/${total} ${filename}`);
       });
       setModelStatus(status);
+      const readyMessage = status.liteRTRuntimeReady
+        ? 'A LiteRT runtime model is stored on this device. SHIFA will try local inference before cloud or protocol fallback.'
+        : status.ggufRuntimeReady
+          ? 'A GGUF runtime model is stored on this device. It is ready for the llama.cpp bridge; SHIFA will keep cloud or protocol fallback active until that bridge is installed.'
+          : 'Adapter artifacts are stored on this device. Add a .litertlm, .task, .tflite, or .gguf runtime artifact to R2 for fully local Gemma inference.';
       Alert.alert(
         'Model artifacts ready',
-        status.runtimeReady
-          ? 'A LiteRT runtime model is stored on this device. SHIFA will try local inference before cloud or protocol fallback.'
-          : 'Adapter artifacts are stored on this device. Add a .litertlm, .task, or .tflite runtime artifact to R2 for fully local Gemma inference.'
+        readyMessage
       );
     } catch (error) {
       Alert.alert('Model download failed', error instanceof Error ? error.message : 'Unable to download model artifacts.');
@@ -340,8 +343,8 @@ export default function SettingsScreen() {
           <ReadinessRow
             icon={<Cloud color={isGeminiConfigured() ? colors.green : colors.amber} size={20} />}
             label="Clinical AI"
-            value={modelStatus?.runtimeReady ? 'LiteRT runtime model on device' : isGeminiConfigured() ? 'Cloud fallback configured' : 'Protocol rules only'}
-            tone={modelStatus?.runtimeReady || isGeminiConfigured() ? 'good' : 'warn'}
+            value={modelStatus?.liteRTRuntimeReady ? 'LiteRT runtime model on device' : modelStatus?.ggufRuntimeReady ? 'GGUF model ready for native bridge' : isGeminiConfigured() ? 'Cloud fallback configured' : 'Protocol rules only'}
+            tone={modelStatus?.liteRTRuntimeReady || modelStatus?.ggufRuntimeReady || isGeminiConfigured() ? 'good' : 'warn'}
             dim={darkMode}
           />
           <ReadinessRow
@@ -349,7 +352,7 @@ export default function SettingsScreen() {
             label="Model files"
             value={
               modelStatus?.configured
-                ? `${modelStatus.runtimeReady ? 'runtime ready' : 'adapter only'} • ${modelStatus.requiredDownloadedCount}/${modelStatus.requiredCount} required files • ${formatBytes(modelStatus.totalBytes)}`
+                ? `${modelStatus.liteRTRuntimeReady ? 'LiteRT ready' : modelStatus.ggufRuntimeReady ? 'GGUF ready' : 'adapter only'} • ${modelStatus.requiredDownloadedCount}/${modelStatus.requiredCount} required files • ${formatBytes(modelStatus.totalBytes)}`
                 : 'Set EXPO_PUBLIC_SHIFA_MODEL_BASE_URL'
             }
             tone={modelStatus?.runtimeReady ? 'good' : 'warn'}
