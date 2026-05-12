@@ -1,6 +1,7 @@
 .env
 .env.*
 !.env.example
+!ml/.env.e2b.example
 .DS_Store
 *.log
 .npmrc
