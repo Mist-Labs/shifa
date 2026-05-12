@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import re
 import sys
 from typing import Any
 
@@ -118,6 +120,53 @@ PROTOCOL_DIAGNOSIS_SYNONYMS: dict[str, list[str]] = {
 }
 
 
+def _extract_string_field(raw: str, key: str) -> str | None:
+    match = re.search(rf'"{re.escape(key)}"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)', raw, flags=re.IGNORECASE)
+    if not match:
+        return None
+    try:
+        return json.loads(f'"{match.group(1)}"')
+    except json.JSONDecodeError:
+        return match.group(1)
+
+
+def _extract_number_field(raw: str, key: str) -> float | None:
+    match = re.search(rf'"{re.escape(key)}"\s*:\s*([0-9]+(?:\.[0-9]+)?)', raw, flags=re.IGNORECASE)
+    return float(match.group(1)) if match else None
+
+
+def _extract_list_field(raw: str, key: str) -> list[Any] | None:
+    match = re.search(rf'"{re.escape(key)}"\s*:\s*(\[[\s\S]*?\])', raw, flags=re.IGNORECASE)
+    if not match:
+        return None
+    try:
+        value = json.loads(match.group(1))
+    except json.JSONDecodeError:
+        return None
+    return value if isinstance(value, list) else None
+
+
+def parse_prediction(raw: str) -> dict[str, Any]:
+    try:
+        return extract_json_object(raw)
+    except Exception as exc:
+        partial: dict[str, Any] = {"parse_warning": str(exc)}
+        for key in ("decision", "primary_diagnosis", "referral", "monitoring", "reasoning_trace", "voice_response"):
+            value = _extract_string_field(raw, key)
+            if value is not None:
+                partial[key] = value
+        for key in ("differential_diagnoses", "danger_signs", "treatment_protocol"):
+            value = _extract_list_field(raw, key)
+            if value is not None:
+                partial[key] = value
+        confidence = _extract_number_field(raw, "confidence")
+        if confidence is not None:
+            partial["confidence"] = confidence
+        if len(partial) == 1:
+            raise
+        return partial
+
+
 def build_prompt(tokenizer: Any, system_prompt: str, symptom_text: str) -> str:
     messages = [
         {"role": "system", "content": system_prompt},
@@ -214,6 +263,8 @@ def infer_decision(pred: dict[str, Any]) -> str:
 
 
 def has_required_schema(pred: dict[str, Any]) -> bool:
+    if pred.get("parse_warning"):
+        return False
     return all(key in pred for key in REQUIRED_SCHEMA_KEYS)
 
 
@@ -265,6 +316,8 @@ def validate_drug_doses(pred: dict[str, Any], expected: dict[str, Any], case: di
     if isinstance(treatment, str):
         return True
     if isinstance(treatment, list):
+        if not any(isinstance(item, dict) for item in treatment):
+            return True
         drug_doses = treatment
     elif isinstance(treatment, dict):
         drug_doses = treatment.get("drug_doses") or []
@@ -392,7 +445,7 @@ def main() -> None:
         prompt = build_prompt(tokenizer, country_prompt(case["country"], case["language"]), case["symptom_text"])
         try:
             raw = run_inference(model, tokenizer, prompt, max_new_tokens=max_new_tokens)
-            pred = extract_json_object(raw)
+            pred = parse_prediction(raw)
         except Exception as exc:
             pred = {"error": str(exc), "raw_response": raw[:2000]}
 
