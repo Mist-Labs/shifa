@@ -50,9 +50,20 @@ def main() -> None:
 
     base_model = env("SHIFA_BASE_MODEL", "google/gemma-4-e4b-it")
     max_seq_length = env_int("SHIFA_MAX_SEQ_LENGTH", 8192)
+    batch_size = env_int("SHIFA_BATCH_SIZE", 2)
+    grad_accum = env_int("SHIFA_GRAD_ACCUM", 4)
+    epochs = env_int("SHIFA_NUM_EPOCHS", 3)
+    learning_rate = env_float("SHIFA_LEARNING_RATE", 2e-4)
+    warmup_steps = env_int("SHIFA_WARMUP_STEPS", 10)
+    save_strategy = env("SHIFA_SAVE_STRATEGY", "epoch")
+    optim = env("SHIFA_OPTIM", "adamw_8bit")
+    logging_steps = env_int("SHIFA_LOGGING_STEPS", 10)
     train_file = str(resolve_path(env("SHIFA_TRAIN_FILE", "data/processed/training_final.jsonl")))
     output_dir = str(resolve_path(env("SHIFA_CHECKPOINT_DIR", "models/shifa-gemma4-checkpoints")))
     model_dir = str(resolve_path(env("SHIFA_MODEL_DIR", "models/shifa-gemma4-e4b-finetuned")))
+    device_map = None
+    if env("SHIFA_LOAD_IN_4BIT", "1") != "0" and torch.cuda.is_available():
+        device_map = {"": torch.cuda.current_device()}
 
     model, tokenizer = FastLanguageModel.from_pretrained(
         model_name=base_model,
@@ -60,6 +71,7 @@ def main() -> None:
         load_in_4bit=env("SHIFA_LOAD_IN_4BIT", "1") != "0",
         dtype=None,
         token=hf_token or None,
+        device_map=device_map,
     )
 
     model = FastLanguageModel.get_peft_model(
@@ -90,19 +102,21 @@ def main() -> None:
         args=SFTConfig(
             dataset_text_field="text",
             max_seq_length=max_seq_length,
-            per_device_train_batch_size=env_int("SHIFA_BATCH_SIZE", 2),
-            gradient_accumulation_steps=env_int("SHIFA_GRAD_ACCUM", 4),
-            warmup_steps=10,
-            num_train_epochs=env_int("SHIFA_NUM_EPOCHS", 3),
-            learning_rate=env_float("SHIFA_LEARNING_RATE", 2e-4),
+            per_device_train_batch_size=batch_size,
+            gradient_accumulation_steps=grad_accum,
+            warmup_steps=warmup_steps,
+            num_train_epochs=epochs,
+            learning_rate=learning_rate,
             fp16=not torch.cuda.is_bf16_supported(),
             bf16=torch.cuda.is_bf16_supported(),
-            logging_steps=10,
+            logging_steps=logging_steps,
             output_dir=output_dir,
-            save_strategy="epoch",
-            optim="adamw_8bit",
+            save_strategy=save_strategy,
+            optim=optim,
             weight_decay=0.01,
             lr_scheduler_type="linear",
+            dataloader_num_workers=env_int("SHIFA_DATALOADER_WORKERS", 2),
+            dataset_num_proc=env_int("SHIFA_DATASET_NUM_PROC", 2),
             report_to=[] if env("WANDB_MODE", "disabled") == "disabled" else ["wandb"],
         ),
     )
@@ -120,12 +134,15 @@ def main() -> None:
             "model_dir": model_dir,
             "checkpoint_dir": output_dir,
             "max_seq_length": max_seq_length,
-            "epochs": env_int("SHIFA_NUM_EPOCHS", 3),
-            "batch_size": env_int("SHIFA_BATCH_SIZE", 2),
-            "gradient_accumulation_steps": env_int("SHIFA_GRAD_ACCUM", 4),
-            "learning_rate": env_float("SHIFA_LEARNING_RATE", 2e-4),
+            "epochs": epochs,
+            "batch_size": batch_size,
+            "gradient_accumulation_steps": grad_accum,
+            "learning_rate": learning_rate,
             "lora_r": env_int("SHIFA_LORA_R", 16),
             "lora_alpha": env_int("SHIFA_LORA_ALPHA", 16),
+            "warmup_steps": warmup_steps,
+            "save_strategy": save_strategy,
+            "optim": optim,
             "metrics": train_result.metrics,
         },
     )

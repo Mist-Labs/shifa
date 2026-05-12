@@ -58,9 +58,15 @@ os.environ["SHIFA_MODEL_VARIANT"] = "e2b"
 os.environ["SHIFA_MAX_SEQ_LENGTH"] = "4096"
 os.environ["SHIFA_LOAD_IN_4BIT"] = "1"
 os.environ["SHIFA_NUM_EPOCHS"] = "3"
-os.environ["SHIFA_BATCH_SIZE"] = "2"
-os.environ["SHIFA_GRAD_ACCUM"] = "4"
+os.environ["SHIFA_BATCH_SIZE"] = "4"
+os.environ["SHIFA_GRAD_ACCUM"] = "2"
 os.environ["SHIFA_LEARNING_RATE"] = "2e-4"
+os.environ["SHIFA_WARMUP_STEPS"] = "10"
+os.environ["SHIFA_LOGGING_STEPS"] = "10"
+os.environ["SHIFA_SAVE_STRATEGY"] = "epoch"
+os.environ["SHIFA_OPTIM"] = "adamw_8bit"
+os.environ["SHIFA_DATALOADER_WORKERS"] = "2"
+os.environ["SHIFA_DATASET_NUM_PROC"] = "2"
 os.environ["SHIFA_LORA_R"] = "16"
 os.environ["SHIFA_LORA_ALPHA"] = "16"
 os.environ["SHIFA_SEED"] = "42"
@@ -74,6 +80,13 @@ os.environ["SHIFA_TRAINING_MANIFEST"] = "reports/e2b_training_manifest.json"
 os.environ["SHIFA_VALIDATION_REPORT"] = "reports/e2b_validation_metrics.json"
 os.environ["SHIFA_TRAINING_MANIFEST_KEY"] = "reports/e2b_training_manifest.json"
 os.environ["SHIFA_VALIDATION_REPORT_KEY"] = "reports/e2b_validation_metrics.json"
+```
+
+This keeps the effective batch size at 8 (`4 x 2`) while reducing the number of gradient accumulation steps. If Kaggle reports CUDA out-of-memory, use the safer E4B-style setting:
+
+```python
+os.environ["SHIFA_BATCH_SIZE"] = "2"
+os.environ["SHIFA_GRAD_ACCUM"] = "4"
 ```
 
 ## Train
