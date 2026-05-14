@@ -362,6 +362,11 @@ export class ClinicalEngine {
     const urgent = decision.decision === 'REFER_URGENT';
     const routineRefer = decision.decision === 'REFER_ROUTINE';
     const responseMap: Record<Language, string> = {
+      en: urgent
+        ? `Refer the patient now. Reason: ${decision.primaryDiagnosis}. Watch for danger signs during transport.`
+        : routineRefer
+          ? `The patient should be assessed at the nearest health facility. Reason: ${decision.primaryDiagnosis}.`
+          : `Plan: ${decision.primaryDiagnosis}. Follow the steps and return immediately if danger signs appear.`,
       ar: urgent
         ? `يجب تحويل المريض الآن. السبب: ${decision.primaryDiagnosis}. راقب علامات الخطر أثناء الطريق.`
         : routineRefer

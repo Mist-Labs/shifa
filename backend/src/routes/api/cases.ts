@@ -33,22 +33,25 @@ const registerCasesRoutes: FastifyPluginAsync = async (instance) => {
       synced: false,
     };
 
-    saveConsultations([consultation]);
+    await saveConsultations([consultation]);
 
     return reply.code(200).send({ success: true, decision: result });
     }
   );
 
   // GET /api/cases - list cases
-  instance.get('/list', async () => ({
-    cases: listConsultations(),
-    total: listConsultations().length,
-  }));
+  instance.get('/list', async () => {
+    const cases = await listConsultations();
+    return {
+      cases,
+      total: cases.length,
+    };
+  });
 
   // GET /api/cases/:id - retrieve specific case
   instance.get<{ Params: { id: string } }>('/:id', { schema: { params: idParamsSchema } }, async (request, reply) => {
     const { id } = request.params;
-    const found = getConsultation(id);
+    const found = await getConsultation(id);
     if (!found) return reply.code(404).send({ id, message: 'case not found' });
     return found;
   });

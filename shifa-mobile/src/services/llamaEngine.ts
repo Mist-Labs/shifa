@@ -2,6 +2,7 @@ import { initLlama, LlamaContext } from 'llama.rn';
 import { ClinicalDecision } from './caseLog';
 import { extractJsonObject, normalizeCloudClinicalDecision } from './clinicalContract';
 import { getGGUFModelPath } from './modelManager';
+import { promptLanguageName } from './language';
 
 let context: LlamaContext | null = null;
 let loadedModelPath: string | null = null;
@@ -107,6 +108,7 @@ function buildClinicalPrompt(input: {
     input.muacCm !== undefined ? `MUAC cm: ${input.muacCm}` : null,
     input.bilateralEdema ? 'Bilateral edema: yes' : 'Bilateral edema: no',
   ].filter(Boolean).join('\n');
+  const languageName = promptLanguageName(input.language);
 
   return [
     '<start_of_turn>system',
@@ -115,7 +117,8 @@ function buildClinicalPrompt(input: {
     'Respond only as valid JSON with: decision, primary_diagnosis, differential_diagnoses, confidence, treatment_protocol, referral, monitoring, danger_signs, reasoning_trace, voice_response.',
     'Valid decisions are TREAT, REFER_URGENT, REFER_ROUTINE. Never output MONITOR.',
     'Default to REFER_URGENT when danger signs are present, confidence is below 0.70, or age/weight needed for dosing is missing.',
-    `Country: ${input.country}. Language: ${input.language}.`,
+    `Country: ${input.country}. CHW language: ${languageName} (${input.language}).`,
+    `Write every user-facing JSON string in ${languageName}: diagnosis, treatment, referral, danger signs, reasoning, and voice response. Keep only decision enum values in English.`,
     '<end_of_turn>',
     '<start_of_turn>user',
     `${fieldContext}\n${input.symptomText}`.trim(),

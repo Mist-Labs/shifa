@@ -1,14 +1,16 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import { ClinicalDecision } from './caseLog';
 import { extractJsonObject, normalizeCloudClinicalDecision } from './clinicalContract';
+import { promptLanguageName } from './language';
+import { envValue, hasGeminiKey } from './runtimeEnv';
 
 const GEMINI_API_KEY =
-  process.env.EXPO_PUBLIC_GOOGLE_API_KEY ||
-  process.env.EXPO_PUBLIC_GEMINI_API_KEY ||
+  envValue('EXPO_PUBLIC_GOOGLE_API_KEY', 'googleApiKey') ||
+  envValue('EXPO_PUBLIC_GEMINI_API_KEY', 'geminiApiKey') ||
   process.env.GOOGLE_API_KEY ||
   process.env.GEMINI_API_KEY;
 
-const GEMINI_MODEL = process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-2.5-flash';
+const GEMINI_MODEL = envValue('EXPO_PUBLIC_GEMINI_MODEL', 'geminiModel', 'gemini-2.5-flash');
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 const RETRY_DELAYS_MS = [700, 1400, 2600];
 
@@ -57,7 +59,7 @@ export function getFieldSafeAIMessage(error: unknown): string {
 }
 
 export function isGeminiConfigured(): boolean {
-  return Boolean(GEMINI_API_KEY);
+  return hasGeminiKey();
 }
 
 export async function buildEvidenceAsset(input: {
@@ -89,9 +91,17 @@ export async function analyzeCloudClinicalCase(input: {
   weightKg?: number;
   muacCm?: number;
   bilateralEdema: boolean;
+  country: string;
+  language: string;
   evidence: EvidenceAsset[];
 }): Promise<ClinicalDecision> {
+  const languageName = promptLanguageName(input.language);
   const payload = {
+    country: input.country,
+    chwLanguage: {
+      code: input.language,
+      name: languageName,
+    },
     symptoms: input.symptomText.trim(),
     patient: {
       ageMonths: input.ageMonths ?? null,
@@ -107,6 +117,8 @@ export async function analyzeCloudClinicalCase(input: {
       text:
         'You are SHIFA clinical decision support for trained community health workers in Sudan, DRC, Somalia, Rwanda, and crisis clinics. ' +
         'Analyze the patient text and attached evidence. Use WHO IMCI and SAM field-triage caution. ' +
+        `The CHW selected ${languageName}. Write every user-facing string in ${languageName}: primaryDiagnosis, summary, treatmentSteps, dangerSigns, returnInstructions, referral.messageForFacility, and voiceResponse. ` +
+        'Keep only enum values in English: decision and referral.urgency. Do not mix English into the response except drug names, measurements, acronyms, and protocol terms such as ORS, RUTF, MUAC, SAM, or IMCI. ' +
         'Do not invent facts not present. If evidence is poor or measurements are missing, lower confidence and state immediate safe next action. ' +
         'Default to REFER_URGENT when danger signs are present, when confidence is below 0.70, or when age/weight needed for dosing is missing. ' +
         'Use only these decision values: TREAT, REFER_URGENT, REFER_ROUTINE. Do not use MONITOR. ' +
@@ -169,6 +181,7 @@ async function generateText(parts: GeminiPart[]): Promise<string> {
 
       const bodyText = await response.text();
       if (!response.ok) {
+        console.warn(`SHIFA Gemini request failed with status ${response.status}: ${bodyText.slice(0, 240)}`);
         if (isRetryableStatus(response.status) && attempt < RETRY_DELAYS_MS.length) {
           lastError = new ShifaAIError(
             `Gemini transient status ${response.status}: ${bodyText.slice(0, 180)}`,

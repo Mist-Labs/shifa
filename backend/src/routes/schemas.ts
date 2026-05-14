@@ -1,5 +1,5 @@
-export const countrySchema = { type: 'string', enum: ['sudan', 'drc', 'somalia', 'nigeria'] };
-export const languageSchema = { type: 'string', enum: ['ar', 'so', 'fr', 'ln', 'rw', 'ha'] };
+export const countrySchema = { type: 'string', enum: ['sudan', 'drc', 'somalia', 'nigeria', 'rwanda'] };
+export const languageSchema = { type: 'string', enum: ['en', 'ar', 'so', 'fr', 'ln', 'rw', 'ha'] };
 
 export const patientSchema = {
   type: 'object',

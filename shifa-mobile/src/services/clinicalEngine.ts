@@ -3,6 +3,7 @@ import { analyzeCloudClinicalCase, EvidenceAsset, isGeminiConfigured, ShifaAIErr
 import { DecisionValue, inferDecision, normalizeDecision } from './clinicalContract';
 import { analyzeWithLiteRT } from './litertEngine';
 import { analyzeWithLlama } from './llamaEngine';
+import { localizeGuardrailReason, textPack } from './language';
 
 interface ClinicalEngineInput {
   symptomText: string;
@@ -67,7 +68,7 @@ export async function analyzeClinicalCase(input: ClinicalEngineInput): Promise<C
         if (error instanceof ShifaAIError && !error.retryable) throw error;
         decision = evaluateFieldProtocol(input);
         decision.engineMode = 'protocol_fallback';
-        decision.summary = `${decision.summary}. Cloud fallback was unavailable; deterministic SHIFA safety rules were applied.`;
+        decision.summary = `${decision.summary}. ${textPack(input.language).cloudFallbackNotice}`;
       }
     } else {
       decision = evaluateFieldProtocol(input);
@@ -94,6 +95,8 @@ function applyClinicalSafetyLayer(decision: ClinicalDecision, input: ClinicalEng
         ? 'REFER_URGENT'
         : inferred;
   const overrideReason = objectiveUrgent ?? routineReason ?? urgentDiagnostic;
+  const localizedReason = localizeGuardrailReason(overrideReason, input.language);
+  const text = textPack(input.language);
 
   if (guardedDecision === decision.decision && !overrideReason) return { ...decision, decision: guardedDecision };
 
@@ -101,13 +104,13 @@ function applyClinicalSafetyLayer(decision: ClinicalDecision, input: ClinicalEng
     ...decision,
     decision: guardedDecision,
     rawDecision: decision.decision,
-    guardrailOverrideReason: overrideReason ?? undefined,
-    summary: overrideReason ? `${decision.summary} Safety protocol applied: ${overrideReason}.` : decision.summary,
+    guardrailOverrideReason: overrideReason ? localizedReason : undefined,
+    summary: overrideReason ? `${decision.summary} ${text.safetyApplied(localizedReason)}` : decision.summary,
     referral:
       guardedDecision === 'REFER_URGENT' || guardedDecision === 'REFER_ROUTINE'
         ? {
             urgency: guardedDecision === 'REFER_URGENT' ? 'URGENT' : 'ROUTINE',
-            messageForFacility: decision.referral?.messageForFacility ?? `${decision.primaryDiagnosis}. Safety protocol applied: ${overrideReason}.`,
+            messageForFacility: decision.referral?.messageForFacility ?? text.referralSafetyMessage(decision.primaryDiagnosis, localizedReason),
           }
         : undefined,
   };
@@ -117,9 +120,8 @@ function buildObjectiveText(input: ClinicalEngineInput, decision: ClinicalDecisi
   return [
     input.symptomText,
     input.bilateralEdema ? 'bilateral edema' : '',
-    typeof input.muacCm === 'number' ? `MUAC ${input.muacCm}cm` : '',
+    typeof input.muacCm === 'number' && input.muacCm > 0 ? `MUAC ${input.muacCm}cm` : '',
     typeof input.ageMonths === 'number' && input.ageMonths < 1 ? 'neonate' : '',
-    ...decision.dangerSigns,
   ].join(' ');
 }
 

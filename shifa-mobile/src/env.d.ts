@@ -17,3 +17,28 @@ declare const process: {
     GEMINI_API_KEY?: string;
   };
 };
+
+declare module 'expo-constants' {
+  const Constants: {
+    expoConfig?: {
+      extra?: {
+        shifa?: {
+          africasTalkingUsername?: string;
+          africasTalkingApiKey?: string;
+          africasTalkingSenderId?: string;
+          googleApiKey?: string;
+          geminiApiKey?: string;
+          geminiModel?: string;
+          shifaApiUrl?: string;
+          shifaModelBaseUrl?: string;
+          shifaBleServiceUuid?: string;
+          shifaBleAlertCharUuid?: string;
+          shifaBleScanMs?: string;
+          shifaBleMaxPeers?: string;
+          shifaBleAlertTtlMs?: string;
+        };
+      };
+    };
+  };
+  export default Constants;
+}

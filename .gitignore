@@ -6,6 +6,7 @@
 *.log
 .npmrc
 node_modules
+backend/data/
 .gradle-cache/
 *.tsbuildinfo
 __pycache__/
@@ -44,3 +45,6 @@ ml/reports/*.json
 !ml/reports/upload_manifest.json
 !ml/reports/validation_metrics.json
 ml/TRAINING_AND_VALIDATION_PROCESS.md
+SHIFA_Implementation_Guide_v3.md
+shifa_v2_product_doc.md
+OPERATIONAL.md

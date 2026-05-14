@@ -69,7 +69,9 @@ Latest held-out validation result on `data/test_cases/imci_test_60.jsonl`:
 
 Training and validation histories are preserved through `reports/training_manifest.json`, `reports/validation_metrics.json`, and `reports/upload_manifest.json`, all uploaded to Cloudflare R2 when the remote environment has R2 credentials.
 
-**Still not complete:** LiteRT mobile export, native Android runtime integration, physical-device airplane-mode validation, full voice pipeline, and SHIFA Guard weapon detection remain next-phase work. Do not claim the full implementation guide is complete until those items are tested on a physical Android APK.
+**Completed since the E4B milestone:** SHIFA now has an E2B fine-tuned fallback validated on the same 60-case suite, E2B GGUF Q4_K_M artifacts uploaded to R2, first-run offline model setup with progress UI, llama.rn integration as the practical GGUF runtime path, localized Gemini/protocol fallback output, result-screen Speak/Stop playback through device TTS, tappable saved case details, mobile SQLite case logging, sync queue retry handling, unauthenticated mobile `/api/sync`, Aiven PostgreSQL persistence, and DBSCAN-style spatio-temporal outbreak clustering for synced cases.
+
+**Still not complete:** Fine-tuned LiteRT-LM export, verified LiteRT inference on physical Android, physical-device airplane-mode validation, fully offline STT, native Coqui/VITS TTS model bundles, YOLO/YAMNet SHIFA Guard models, Bluetooth mesh field validation, deployed public backend URL, production dashboard deployment, and final demo/submission recording remain next-phase work. Do not claim the full implementation guide is complete until those items are tested on a physical Android APK.
 
 ---
 

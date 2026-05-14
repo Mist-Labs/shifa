@@ -7,18 +7,21 @@ const registerThreatRoutes: FastifyPluginAsync = async (instance) => {
   instance.post('/events', { schema: { body: threatEventSchema } }, async (request, reply) => {
     const body = request.body as any;
     const result = await reportThreat(body);
-    saveThreatEvent(result.event);
+    await saveThreatEvent(result.event);
     return reply.code(201).send(result);
   });
 
-  instance.get('/events', async () => ({
-    events: listThreatEvents(),
-    total: listThreatEvents().length,
-  }));
+  instance.get('/events', async () => {
+    const events = await listThreatEvents();
+    return {
+      events,
+      total: events.length,
+    };
+  });
 
   instance.get('/events/:id', { schema: { params: idParamsSchema } }, async (request, reply) => {
     const { id } = request.params as any;
-    const found = getThreatEvent(id);
+    const found = await getThreatEvent(id);
     if (!found) return reply.code(404).send({ id, message: 'threat event not found' });
     return found;
   });

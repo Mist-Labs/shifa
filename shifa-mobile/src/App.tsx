@@ -1,17 +1,20 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { ActivityIndicator, Alert, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import NetInfo from '@react-native-community/netinfo';
 import {
   CheckCircle,
   ChevronRight,
+  Download,
   FileText,
   Globe,
+  HardDrive,
   Settings,
   Shield,
   Stethoscope,
+  Wifi,
 } from 'lucide-react-native';
 import ClinicScreen from './screens/ClinicScreen';
 import GuardScreen from './screens/GuardScreen';
@@ -23,17 +26,27 @@ import { syncHealthReports } from './services/syncReports';
 import { colors } from './design/system';
 import { UIPreferencesProvider } from './services/uiPreferences';
 import { I18nProvider, saveLanguagePreference, toAppLanguage } from './services/i18n';
+import {
+  dismissModelSetup,
+  downloadClinicalModelArtifacts,
+  getClinicalModelStatus,
+  getFreeDiskBytes,
+  ModelArtifactStatus,
+  shouldShowModelSetup,
+} from './services/modelManager';
 
 const Tab = createBottomTabNavigator();
 
-type OnboardingStep = 'splash' | 'country' | 'language' | 'done';
-const SPLASH_DURATION_MS = 1500;
+type OnboardingStep = 'splash' | 'modelSetup' | 'country' | 'language' | 'done';
+const SPLASH_DURATION_MS = 2000;
+const DOWNLOAD_BUFFER_BYTES = 1024 * 1024 * 1024;
 
 const countries = [
   { label: 'Sudan', local: 'السودان', flag: '🇸🇩' },
   { label: 'DR Congo', local: 'Kongo ya Boleki', flag: '🇨🇩' },
   { label: 'Somalia', local: 'Soomaaliya', flag: '🇸🇴' },
   { label: 'Nigeria', local: 'Arewa', flag: '🇳🇬' },
+  { label: 'Rwanda', local: 'Rwanda', flag: '🇷🇼' },
 ];
 
 const languages = [
@@ -49,12 +62,27 @@ const languages = [
 export default function App() {
   const [loading, setLoading] = useState(true);
   const [onboardingStep, setOnboardingStep] = useState<OnboardingStep>('splash');
-  const [selectedLanguage, setSelectedLanguage] = useState('Lingala');
+  const [postSplashStep, setPostSplashStep] = useState<OnboardingStep>('done');
+  const [selectedLanguage, setSelectedLanguage] = useState('English');
+  const [modelStatus, setModelStatus] = useState<ModelArtifactStatus | null>(null);
+  const [freeDiskBytes, setFreeDiskBytes] = useState<number | null>(null);
+  const [modelDownloading, setModelDownloading] = useState(false);
+  const [modelDownloadLabel, setModelDownloadLabel] = useState('');
+  const [modelDownloadProgress, setModelDownloadProgress] = useState(0);
+  const onboardingOpacity = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     const initialize = async () => {
       try {
         await initDatabase();
+        const [status, freeBytes, showModelSetup] = await Promise.all([
+          getClinicalModelStatus(),
+          getFreeDiskBytes(),
+          shouldShowModelSetup(),
+        ]);
+        setModelStatus(status);
+        setFreeDiskBytes(freeBytes);
+        setPostSplashStep(showModelSetup ? 'modelSetup' : 'done');
       } catch (error) {
         console.error('Failed to initialize database:', error);
       } finally {
@@ -78,15 +106,71 @@ export default function App() {
     return unsubscribe;
   }, []);
 
+  const transitionFromSplash = useCallback((nextStep: OnboardingStep) => {
+    Animated.timing(onboardingOpacity, {
+      toValue: 0,
+      duration: 220,
+      useNativeDriver: true,
+    }).start(() => {
+      setOnboardingStep(nextStep);
+      if (nextStep === 'done') return;
+      requestAnimationFrame(() => {
+        Animated.timing(onboardingOpacity, {
+          toValue: 1,
+          duration: 260,
+          useNativeDriver: true,
+        }).start();
+      });
+    });
+  }, [onboardingOpacity]);
+
   useEffect(() => {
     if (loading || onboardingStep !== 'splash') return;
 
     const timer = setTimeout(() => {
-      setOnboardingStep('done');
+      transitionFromSplash(postSplashStep);
     }, SPLASH_DURATION_MS);
 
     return () => clearTimeout(timer);
-  }, [loading, onboardingStep]);
+  }, [loading, onboardingStep, postSplashStep, transitionFromSplash]);
+
+  const continueWithoutOfflineModel = async () => {
+    await dismissModelSetup();
+    setOnboardingStep('done');
+  };
+
+  const downloadOfflineModel = async () => {
+    if (modelDownloading) return;
+    const neededBytes = modelStatus?.estimatedDownloadBytes ?? 0;
+    if (freeDiskBytes && neededBytes && freeDiskBytes < neededBytes + DOWNLOAD_BUFFER_BYTES) {
+      Alert.alert(
+        'Not enough storage',
+        `Free at least ${formatBytes(neededBytes + DOWNLOAD_BUFFER_BYTES - freeDiskBytes)} before downloading the offline clinical model.`
+      );
+      return;
+    }
+
+    setModelDownloading(true);
+    setModelDownloadProgress(0);
+    setModelDownloadLabel('Preparing download');
+    try {
+      const status = await downloadClinicalModelArtifacts((done, total, filename, percent) => {
+        const itemProgress = percent ?? 0;
+        const overallProgress = total ? (done + itemProgress) / total : itemProgress;
+        setModelDownloadProgress(Math.min(1, overallProgress));
+        setModelDownloadLabel(`${filename} • ${Math.round(itemProgress * 100)}%`);
+      });
+      setModelStatus(status);
+      setFreeDiskBytes(await getFreeDiskBytes());
+      await dismissModelSetup();
+      Alert.alert('Offline model ready', 'SHIFA can now run local clinical inference on this device.');
+      setOnboardingStep('done');
+    } catch (error) {
+      Alert.alert('Model download failed', error instanceof Error ? error.message : 'Unable to download the offline model.');
+    } finally {
+      setModelDownloading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -100,14 +184,15 @@ export default function App() {
   if (onboardingStep !== 'done') {
     return (
       <SafeAreaView style={[styles.onboarding, onboardingStep === 'splash' && styles.splash]}>
-        {onboardingStep === 'splash' && (
+        <Animated.View style={[styles.onboardingFade, { opacity: onboardingOpacity }]}>
+          {onboardingStep === 'splash' && (
           <View style={styles.splashInner}>
             <View style={styles.logoBox}>
               <Text style={styles.logoCross}>+</Text>
             </View>
             <Text style={styles.brand}>SHIFA</Text>
             <Text style={styles.arabic}>شفاء</Text>
-            <Text style={styles.tagline}>For the people the world forgot to heal</Text>
+            <Text style={styles.tagline}>Clinical guidance for care beyond the grid</Text>
             <View style={styles.dots}>
               <View style={[styles.dot, styles.dotActive]} />
               <View style={styles.dot} />
@@ -118,12 +203,70 @@ export default function App() {
               accessibilityLabel="Continue to patient consultation"
               accessibilityRole="button"
               style={styles.hiddenAdvance}
-              onPress={() => setOnboardingStep('done')}
+              onPress={() => transitionFromSplash(postSplashStep)}
             />
           </View>
-        )}
+          )}
 
-        {onboardingStep === 'country' && (
+          {onboardingStep === 'modelSetup' && (
+          <View style={styles.setupPage}>
+            <View style={styles.modelSetupIcon}>
+              <Download color={colors.white} size={34} strokeWidth={2.5} />
+            </View>
+            <Text style={styles.setupTitle}>Set up offline clinical AI</Text>
+            <Text style={styles.setupSubtitle}>
+              Download the mobile Gemma E2B model once. SHIFA will use it for offline assessments when the device has no signal.
+            </Text>
+
+            <View style={styles.modelInfoCard}>
+              <View style={styles.modelInfoRow}>
+                <HardDrive color={colors.green} size={20} />
+                <View style={styles.modelInfoCopy}>
+                  <Text style={styles.modelInfoLabel}>Download size</Text>
+                  <Text style={styles.modelInfoValue}>{formatBytes(modelStatus?.estimatedDownloadBytes ?? 3427878240)}</Text>
+                </View>
+              </View>
+              <View style={styles.modelInfoRow}>
+                <Wifi color={colors.green} size={20} />
+                <View style={styles.modelInfoCopy}>
+                  <Text style={styles.modelInfoLabel}>Recommended</Text>
+                  <Text style={styles.modelInfoValue}>Wi-Fi or stable network, battery above 30%</Text>
+                </View>
+              </View>
+              <View style={[styles.modelInfoRow, styles.modelInfoRowLast]}>
+                <CheckCircle color={colors.green} size={20} />
+                <View style={styles.modelInfoCopy}>
+                  <Text style={styles.modelInfoLabel}>Available storage</Text>
+                  <Text style={styles.modelInfoValue}>{freeDiskBytes ? formatBytes(freeDiskBytes) : 'Checking device storage'}</Text>
+                </View>
+              </View>
+            </View>
+
+            {modelDownloading && (
+              <View style={styles.downloadProgressGroup}>
+                <View style={styles.downloadTrack}>
+                  <View style={[styles.downloadFill, { width: `${Math.round(modelDownloadProgress * 100)}%` }]} />
+                </View>
+                <Text style={styles.downloadLabel}>{modelDownloadLabel}</Text>
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={[styles.continueButton, modelDownloading && styles.disabledButton]}
+              onPress={downloadOfflineModel}
+              disabled={modelDownloading}
+            >
+              <Text style={styles.continueText}>{modelDownloading ? 'Downloading' : 'Download offline model'}</Text>
+              <ChevronRight color={colors.white} size={22} />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.secondaryButton} onPress={continueWithoutOfflineModel} disabled={modelDownloading}>
+              <Text style={styles.secondaryButtonText}>Continue with cloud/protocol fallback</Text>
+            </TouchableOpacity>
+          </View>
+          )}
+
+          {onboardingStep === 'country' && (
           <View style={styles.setupPage}>
             <Globe color={colors.green} size={42} />
             <Text style={styles.setupTitle}>Select your country</Text>
@@ -140,9 +283,9 @@ export default function App() {
             ))}
             <Text style={styles.setupFooter}>You can change this later</Text>
           </View>
-        )}
+          )}
 
-        {onboardingStep === 'language' && (
+          {onboardingStep === 'language' && (
           <View style={styles.setupPage}>
             <Globe color={colors.green} size={42} />
             <Text style={styles.setupTitle}>Choose language</Text>
@@ -175,7 +318,8 @@ export default function App() {
               <ChevronRight color={colors.white} size={22} />
             </TouchableOpacity>
           </View>
-        )}
+          )}
+        </Animated.View>
       </SafeAreaView>
     );
   }
@@ -240,6 +384,13 @@ function languageCodeFromLabel(label: string): string {
   return 'en';
 }
 
+function formatBytes(bytes: number): string {
+  if (!bytes) return '0 MB';
+  const mb = bytes / (1024 * 1024);
+  if (mb < 1024) return `${mb.toFixed(0)} MB`;
+  return `${(mb / 1024).toFixed(1)} GB`;
+}
+
 const styles = StyleSheet.create({
   loading: {
     flex: 1,
@@ -255,25 +406,25 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     position: 'absolute',
-    left: 14,
-    right: 14,
-    bottom: 12,
-    minHeight: 66,
-    paddingTop: 7,
-    paddingBottom: 8,
-    backgroundColor: 'rgba(252,255,252,0.96)',
+    left: 18,
+    right: 18,
+    bottom: 8,
+    minHeight: 58,
+    paddingTop: 5,
+    paddingBottom: 5,
+    backgroundColor: 'rgba(252,255,252,0.94)',
     borderTopWidth: 0,
     borderRadius: 8,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: '#DDE7E0',
     shadowColor: '#0F2A1C',
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 10,
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 7,
   },
   tabLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '800',
   },
   tabItem: {
@@ -285,6 +436,9 @@ const styles = StyleSheet.create({
   },
   splash: {
     backgroundColor: colors.night,
+  },
+  onboardingFade: {
+    flex: 1,
   },
   splashInner: {
     flex: 1,
@@ -438,5 +592,87 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '900',
     marginRight: 12,
+  },
+  disabledButton: {
+    opacity: 0.72,
+  },
+  secondaryButton: {
+    height: 50,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.lineStrong,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+    backgroundColor: colors.white,
+  },
+  secondaryButtonText: {
+    color: colors.ink,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  modelSetupIcon: {
+    width: 68,
+    height: 68,
+    borderRadius: 20,
+    backgroundColor: colors.green,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+  },
+  modelInfoCard: {
+    backgroundColor: colors.white,
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.lineStrong,
+    marginTop: 8,
+    marginBottom: 14,
+  },
+  modelInfoRow: {
+    minHeight: 66,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.line,
+  },
+  modelInfoRowLast: {
+    borderBottomWidth: 0,
+  },
+  modelInfoCopy: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  modelInfoLabel: {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  modelInfoValue: {
+    color: colors.ink,
+    fontSize: 15,
+    fontWeight: '800',
+    marginTop: 3,
+  },
+  downloadProgressGroup: {
+    marginBottom: 12,
+  },
+  downloadTrack: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#DCE8DF',
+    overflow: 'hidden',
+  },
+  downloadFill: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.green,
+  },
+  downloadLabel: {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 8,
   },
 });

@@ -59,7 +59,7 @@ export async function processConsultation(data: Partial<StoredConsultation> | Co
     createdAt: now,
     synced: false,
   };
-  saveConsultations([apiRecord]);
+  await saveConsultations([apiRecord]);
 
   return { success: true, record };
 }

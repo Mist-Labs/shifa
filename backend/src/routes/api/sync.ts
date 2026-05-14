@@ -23,12 +23,12 @@ const registerSyncRoutes: FastifyPluginAsync = async (instance) => {
 
     const allConsultations = payload.consultations || [];
     const allThreats = payload.threatEvents || [];
-    saveConsultations(allConsultations);
-    saveThreatEvents(allThreats);
+    await saveConsultations(allConsultations);
+    await saveThreatEvents(allThreats);
 
     // Run outbreak detection
-    const outbreakAlerts = detector.detectOutbreaks(listConsultations());
-    saveOutbreakAlerts(outbreakAlerts);
+    const outbreakAlerts = detector.detectOutbreaks(await listConsultations());
+    await saveOutbreakAlerts(outbreakAlerts);
 
     const response: SyncResponse = {
       success: true,

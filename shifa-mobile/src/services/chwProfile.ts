@@ -5,7 +5,7 @@ export type CountryCode = 'SD' | 'CD' | 'SO' | 'NG' | 'RW';
 export interface CHWProfile {
   id: string;
   name: string;
-  country: 'sudan' | 'drc' | 'somalia' | 'nigeria';
+  country: 'sudan' | 'drc' | 'somalia' | 'nigeria' | 'rwanda';
   countryCode: CountryCode;
   language: string;
   region: string;
@@ -18,7 +18,7 @@ const DEFAULT_PROFILE: CHWProfile = {
   name: 'Unconfigured CHW',
   country: 'sudan',
   countryCode: 'SD',
-  language: 'ar',
+  language: 'en',
   region: 'Unconfigured',
   alertRecipients: [],
   guardEnabled: false,
@@ -85,5 +85,6 @@ function toCountryCode(country: string): CountryCode {
   if (country === 'drc') return 'CD';
   if (country === 'somalia') return 'SO';
   if (country === 'nigeria') return 'NG';
+  if (country === 'rwanda') return 'RW';
   return 'SD';
 }

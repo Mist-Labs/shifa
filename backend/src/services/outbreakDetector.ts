@@ -53,6 +53,10 @@ const OUTBREAK_RULES: Record<string, OutbreakRule> = {
   },
 };
 
+function hasCoordinates(c: Consultation): c is Consultation & { latitude: number; longitude: number } {
+  return c.latitude !== undefined && c.longitude !== undefined;
+}
+
 export class OutbreakDetector {
   detectOutbreaks(cases: Consultation[]): OutbreakAlert[] {
     const alerts: OutbreakAlert[] = [];
@@ -63,8 +67,7 @@ export class OutbreakDetector {
 
       if (matchingCases.length < rule.minCases) continue;
 
-      // Simple spatial clustering (in production: use proper DBSCAN library)
-      const clusters = this.spatialCluster(matchingCases, rule.radiusKm, rule.windowHours);
+      const clusters = this.spatialCluster(matchingCases, rule.radiusKm, rule.windowHours, rule.minCases);
 
       for (const cluster of clusters) {
         if (cluster.cases.length >= rule.minCases) {
@@ -80,56 +83,112 @@ export class OutbreakDetector {
   private spatialCluster(
     cases: Consultation[],
     radiusKm: number,
-    windowHours: number
+    windowHours: number,
+    minCases: number
   ): Array<{ cases: Consultation[]; center: [number, number] }> {
     const clusters: Array<{ cases: Consultation[]; center: [number, number] }> = [];
     const visited = new Set<string>();
+    const assigned = new Set<string>();
+    const geoCases = cases.filter((c) => hasCoordinates(c));
+    const minPoints = Math.max(1, minCases);
 
-    for (const caseA of cases) {
-      if (visited.has(caseA.id)) continue;
-      if (!caseA.latitude || !caseA.longitude) continue;
+    for (const seed of geoCases) {
+      if (visited.has(seed.id)) continue;
+      visited.add(seed.id);
 
-      const cluster: Consultation[] = [caseA];
-      visited.add(caseA.id);
+      const neighbors = this.regionQuery(seed, geoCases, radiusKm, windowHours);
+      if (neighbors.length < minPoints) continue;
 
-      // Find neighbors within radius and time window
-      for (const caseB of cases) {
-        if (visited.has(caseB.id)) continue;
-        if (!caseB.latitude || !caseB.longitude) continue;
+      const cluster = this.expandCluster(seed, neighbors, geoCases, visited, assigned, radiusKm, windowHours, minPoints);
+      const boundedCluster = this.largestWindow(cluster, windowHours);
 
-        const dist = this.haversineDistance(
-          caseA.latitude,
-          caseA.longitude,
-          caseB.latitude,
-          caseB.longitude
-        );
-
-        const timeDiffHours =
-          (new Date(caseB.createdAt).getTime() - new Date(caseA.createdAt).getTime()) / 3600000;
-
-        if (dist <= radiusKm && Math.abs(timeDiffHours) <= windowHours) {
-          cluster.push(caseB);
-          visited.add(caseB.id);
-        }
-      }
-
-      if (cluster.length > 0) {
-        const sorted = [...cluster].sort(
-          (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-        );
-        const spanHours =
-          (new Date(sorted[sorted.length - 1].createdAt).getTime() -
-            new Date(sorted[0].createdAt).getTime()) /
-          3600000;
-
-        if (spanHours <= windowHours) {
-          const center = this.clusterCenter(cluster);
-          clusters.push({ cases: cluster, center });
-        }
+      if (boundedCluster.length > 0) {
+        const center = this.clusterCenter(boundedCluster);
+        clusters.push({ cases: boundedCluster, center });
       }
     }
 
     return clusters;
+  }
+
+  private expandCluster(
+    seed: Consultation,
+    neighbors: Consultation[],
+    cases: Consultation[],
+    visited: Set<string>,
+    assigned: Set<string>,
+    radiusKm: number,
+    windowHours: number,
+    minPoints: number
+  ): Consultation[] {
+    const cluster: Consultation[] = [];
+    const queue = [...neighbors];
+
+    this.addToCluster(seed, cluster, assigned);
+
+    for (let index = 0; index < queue.length; index += 1) {
+      const candidate = queue[index];
+      if (!visited.has(candidate.id)) {
+        visited.add(candidate.id);
+        const candidateNeighbors = this.regionQuery(candidate, cases, radiusKm, windowHours);
+        if (candidateNeighbors.length >= minPoints) {
+          for (const next of candidateNeighbors) {
+            if (!queue.some((item) => item.id === next.id)) queue.push(next);
+          }
+        }
+      }
+      this.addToCluster(candidate, cluster, assigned);
+    }
+
+    return cluster;
+  }
+
+  private regionQuery(
+    seed: Consultation,
+    cases: Consultation[],
+    radiusKm: number,
+    windowHours: number
+  ): Consultation[] {
+    return cases.filter((candidate) => this.isSpatioTemporalNeighbor(seed, candidate, radiusKm, windowHours));
+  }
+
+  private isSpatioTemporalNeighbor(
+    a: Consultation,
+    b: Consultation,
+    radiusKm: number,
+    windowHours: number
+  ): boolean {
+    if (!hasCoordinates(a) || !hasCoordinates(b)) return false;
+    const distanceKm = this.haversineDistance(a.latitude, a.longitude, b.latitude, b.longitude);
+    const timeDiffHours = Math.abs(
+      (new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) / 3600000
+    );
+    return distanceKm <= radiusKm && timeDiffHours <= windowHours;
+  }
+
+  private addToCluster(candidate: Consultation, cluster: Consultation[], assigned: Set<string>): void {
+    if (assigned.has(candidate.id)) return;
+    assigned.add(candidate.id);
+    cluster.push(candidate);
+  }
+
+  private largestWindow(cases: Consultation[], windowHours: number): Consultation[] {
+    const sorted = [...cases].sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    );
+    let best: Consultation[] = [];
+    let start = 0;
+    for (let end = 0; end < sorted.length; end += 1) {
+      while (
+        start <= end &&
+        (new Date(sorted[end].createdAt).getTime() - new Date(sorted[start].createdAt).getTime()) / 3600000 > windowHours
+      ) {
+        start += 1;
+      }
+      const current = sorted.slice(start, end + 1);
+      if (current.length > best.length) best = current;
+    }
+    return best;
   }
 
   private matchesRule(c: Consultation, rule: OutbreakRule): boolean {

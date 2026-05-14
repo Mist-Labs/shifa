@@ -120,3 +120,50 @@ Use the E2B model only if validation keeps:
 - decision accuracy acceptable after guardrails
 
 If E2B misses urgent cases even after guardrails, keep E4B for clinical demo and treat E2B as a deployment optimization experiment.
+
+## Export Mobile Runtime
+
+After E2B validation passes, export the adapter to GGUF Q4_K_M for Android testing.
+
+```python
+from unsloth import FastLanguageModel
+from pathlib import Path
+
+model_dir = "/kaggle/working/shifa/ml/models/shifa-gemma4-e2b-finetuned"
+out_dir = Path("/tmp/shifa-gemma4-e2b-gguf")
+out_dir.mkdir(parents=True, exist_ok=True)
+
+model, tokenizer = FastLanguageModel.from_pretrained(
+    model_name=model_dir,
+    max_seq_length=4096,
+    load_in_4bit=True,
+)
+
+model.save_pretrained_gguf(
+    str(out_dir / "shifa-gemma4-e2b"),
+    tokenizer,
+    quantization_method="q4_k_m",
+)
+```
+
+Expected outputs:
+
+- `/tmp/shifa-gemma4-e2b-gguf/shifa-gemma4-e2b_gguf/gemma-4-e2b-it.Q4_K_M.gguf`
+- `/tmp/shifa-gemma4-e2b-gguf/shifa-gemma4-e2b_gguf/gemma-4-e2b-it.F16-mmproj.gguf`
+
+Copy them into the artifact paths used by the uploader:
+
+```python
+%cd /kaggle/working/shifa/ml
+
+!cp /tmp/shifa-gemma4-e2b-gguf/shifa-gemma4-e2b_gguf/gemma-4-e2b-it.Q4_K_M.gguf models/shifa-gemma4-e2b-finetuned/shifa-gemma4-e2b-q4km.gguf
+!cp /tmp/shifa-gemma4-e2b-gguf/shifa-gemma4-e2b_gguf/gemma-4-e2b-it.F16-mmproj.gguf models/shifa-gemma4-e2b-finetuned/shifa-gemma4-e2b-mmproj-f16.gguf
+!python scripts/upload_artifacts.py
+```
+
+Final uploaded runtime artifacts:
+
+- `models/shifa-gemma4-e2b-finetuned/shifa-gemma4-e2b-q4km.gguf` - 3.2 GB, primary offline text runtime
+- `models/shifa-gemma4-e2b-finetuned/shifa-gemma4-e2b-mmproj-f16.gguf` - 940 MB, optional multimodal projector
+
+The mobile app should download the primary GGUF on first run with user approval. Do not bundle this file into the APK.

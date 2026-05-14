@@ -3,7 +3,7 @@ import { FastifyInstance, FastifyRequest } from 'fastify';
 import { AppConfig } from '../config.js';
 
 const MAX_SKEW_MS = 5 * 60 * 1000;
-const PUBLIC_PREFIXES = ['/health', '/ready', '/metrics', '/docs', '/documentation'];
+const PUBLIC_PREFIXES = ['/health', '/ready', '/metrics', '/docs', '/documentation', '/api/sync'];
 
 export function registerHmacAuth(app: FastifyInstance, config: AppConfig): void {
   if (!config.requireHmac) return;

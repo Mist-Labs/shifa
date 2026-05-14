@@ -1,9 +1,9 @@
 import React, { useCallback, useState } from 'react';
-import { Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Modal, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { CheckCircle, Clock, RotateCcw, Trash2, UploadCloud } from 'lucide-react-native';
-import { CaseLogItem, deleteCaseLogItem, getCaseCounts, listCaseLog } from '../services/caseLog';
+import { AlertTriangle, CheckCircle, Clock, RotateCcw, Trash2, UploadCloud, X } from 'lucide-react-native';
+import { CaseLogDetail, CaseLogItem, deleteCaseLogItem, getCaseCounts, getCaseLogDetail, listCaseLog } from '../services/caseLog';
 import { colors, decisionColor } from '../design/system';
 import { flushSMSQueue } from '../services/alertSMS';
 import { getHealthDataCenterUrl, getHealthSyncSummary, HealthSyncSummary, syncHealthReports } from '../services/syncReports';
@@ -26,6 +26,7 @@ export default function CasesScreen() {
   const [items, setItems] = useState<CaseLogItem[]>([]);
   const [counts, setCounts] = useState({ total: 0, synced: 0 });
   const [syncSummary, setSyncSummary] = useState<HealthSyncSummary | null>(null);
+  const [selectedCase, setSelectedCase] = useState<CaseLogDetail | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const { t } = useI18n();
 
@@ -89,6 +90,15 @@ export default function CasesScreen() {
     );
   };
 
+  const openCase = async (item: CaseLogItem) => {
+    const detail = await getCaseLogDetail(item);
+    if (!detail) {
+      Alert.alert('Record unavailable', 'This record could not be opened on this device.');
+      return;
+    }
+    setSelectedCase(detail);
+  };
+
   return (
     <SafeAreaView style={styles.screen}>
       <View style={styles.header}>
@@ -120,6 +130,10 @@ export default function CasesScreen() {
         <Text style={styles.syncPanelFoot}>
           {syncSummary?.lastAttemptAt ? `Last attempt ${formatDateTime(syncSummary.lastAttemptAt)}` : 'No sync attempt yet'}
         </Text>
+        <TouchableOpacity style={styles.syncNowButton} onPress={syncNow}>
+          <RotateCcw color={colors.white} size={18} />
+          <Text style={styles.syncNowText}>{t('sync')}</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -144,7 +158,7 @@ export default function CasesScreen() {
         {items.map((item) => {
           const color = decisionColor(item.decision);
           return (
-            <View key={item.id} style={styles.caseRow}>
+            <TouchableOpacity key={item.id} style={styles.caseRow} onPress={() => openCase(item)} activeOpacity={0.86}>
               <View style={styles.caseBody}>
                 <View style={styles.caseTop}>
                   <View style={[styles.decisionDot, { backgroundColor: color }]} />
@@ -175,21 +189,75 @@ export default function CasesScreen() {
                   </Text>
                 </View>
               </View>
-            </View>
+            </TouchableOpacity>
           );
         })}
       </ScrollView>
 
-      <View style={styles.footer}>
-        <TouchableOpacity style={styles.activeFooterButton}>
-          <Text style={styles.activeFooterText}>{t('cases')}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.footerButton} onPress={syncNow}>
-          <RotateCcw color={colors.ink} size={18} />
-          <Text style={styles.footerText}>{t('sync')}</Text>
-        </TouchableOpacity>
-      </View>
+      <Modal visible={Boolean(selectedCase)} animationType="slide" transparent onRequestClose={() => setSelectedCase(null)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.caseDetailSheet}>
+            <View style={styles.caseDetailHeader}>
+              <View>
+                <Text style={styles.caseDetailKicker}>{selectedCase?.kind === 'threat' ? 'Guard record' : 'Patient record'}</Text>
+                <Text style={styles.caseDetailTitle}>{selectedCase?.title}</Text>
+              </View>
+              <TouchableOpacity style={styles.caseDetailClose} onPress={() => setSelectedCase(null)}>
+                <X color={colors.ink} size={22} />
+              </TouchableOpacity>
+            </View>
+            {selectedCase && (
+              <ScrollView contentContainerStyle={styles.caseDetailBody}>
+                <View style={styles.caseDetailDecisionRow}>
+                  <Text style={[styles.caseDetailDecision, { color: decisionColor(selectedCase.decision) }]}>
+                    {readableDecision(selectedCase.decision, t)}
+                  </Text>
+                  <Text style={styles.caseDetailSync}>{selectedCase.synced ? 'Synced' : 'Queued'}</Text>
+                </View>
+                <Text style={styles.caseDetailMeta}>
+                  {formatDateTime(selectedCase.createdAt)} • {Math.round(selectedCase.confidence * 100)}% confidence
+                </Text>
+                <Text style={styles.caseDetailSection}>Symptoms</Text>
+                <Text style={styles.caseDetailText}>{selectedCase.detail || 'No symptom text recorded.'}</Text>
+                {selectedCase.kind === 'consultation' && (
+                  <>
+                    <View style={styles.caseDetailGrid}>
+                      <DetailMetric label="Age" value={selectedCase.ageMonths ? `${selectedCase.ageMonths} months` : 'Not recorded'} />
+                      <DetailMetric label="Weight" value={selectedCase.weightKg ? `${selectedCase.weightKg} kg` : 'Not recorded'} />
+                      <DetailMetric label="MUAC" value={selectedCase.muacCm ? `${selectedCase.muacCm} cm` : 'Not recorded'} />
+                      <DetailMetric label="Edema" value={selectedCase.bilateralEdema ? 'Recorded' : 'Not recorded'} />
+                    </View>
+                    <Text style={styles.caseDetailSection}>Clinical analysis</Text>
+                    <Text style={styles.caseDetailText}>{selectedCase.fullResponse?.summary || selectedCase.fullResponse?.voiceResponse || 'No analysis summary stored.'}</Text>
+                    {selectedCase.fullResponse?.guardrailOverrideReason && (
+                      <View style={styles.caseDetailWarning}>
+                        <AlertTriangle color={colors.red} size={16} />
+                        <Text style={styles.caseDetailWarningText}>{selectedCase.fullResponse.guardrailOverrideReason}</Text>
+                      </View>
+                    )}
+                    {selectedCase.fullResponse?.treatmentSteps?.map((step: string, index: number) => (
+                      <View key={`${step}-${index}`} style={styles.caseDetailStep}>
+                        <Text style={styles.caseDetailStepNumber}>{index + 1}</Text>
+                        <Text style={styles.caseDetailStepText}>{step}</Text>
+                      </View>
+                    ))}
+                  </>
+                )}
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
+  );
+}
+
+function DetailMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.detailMetric}>
+      <Text style={styles.detailMetricLabel}>{label}</Text>
+      <Text style={styles.detailMetricValue}>{value}</Text>
+    </View>
   );
 }
 
@@ -258,7 +326,7 @@ const styles = StyleSheet.create({
   },
   list: {
     padding: 16,
-    paddingBottom: 118,
+    paddingBottom: 150,
   },
   syncPanel: {
     marginHorizontal: 16,
@@ -334,6 +402,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     marginTop: 10,
+  },
+  syncNowButton: {
+    minHeight: 44,
+    borderRadius: 8,
+    backgroundColor: colors.green,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    marginTop: 12,
+    gap: 8,
+  },
+  syncNowText: {
+    color: colors.white,
+    fontWeight: '900',
   },
   emptyCard: {
     borderRadius: 8,
@@ -445,6 +527,155 @@ const styles = StyleSheet.create({
   syncBadgePending: {
     color: colors.muted,
     backgroundColor: '#E5E7EB',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(2, 28, 18, 0.42)',
+    justifyContent: 'flex-end',
+  },
+  caseDetailSheet: {
+    maxHeight: '86%',
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    backgroundColor: colors.paper,
+    paddingTop: 16,
+  },
+  caseDetailHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    paddingHorizontal: 18,
+    paddingBottom: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#DDE7E0',
+  },
+  caseDetailKicker: {
+    color: colors.green,
+    fontSize: 12,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  caseDetailTitle: {
+    color: colors.ink,
+    fontSize: 21,
+    fontWeight: '900',
+    marginTop: 4,
+    maxWidth: 260,
+  },
+  caseDetailClose: {
+    width: 42,
+    height: 42,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F3',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  caseDetailBody: {
+    padding: 18,
+    paddingBottom: 42,
+  },
+  caseDetailDecisionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  caseDetailDecision: {
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  caseDetailSync: {
+    color: colors.green,
+    fontSize: 12,
+    fontWeight: '900',
+    backgroundColor: '#E8F5ED',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  caseDetailMeta: {
+    color: colors.muted,
+    fontWeight: '800',
+    marginTop: 6,
+  },
+  caseDetailSection: {
+    color: colors.green,
+    fontWeight: '900',
+    marginTop: 18,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+  },
+  caseDetailText: {
+    color: colors.ink,
+    fontSize: 15,
+    fontWeight: '700',
+    lineHeight: 22,
+  },
+  caseDetailGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 14,
+  },
+  detailMetric: {
+    flexBasis: '48%',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#DDE7E0',
+    borderRadius: 8,
+    padding: 10,
+    backgroundColor: colors.paperStrong,
+  },
+  detailMetricLabel: {
+    color: colors.muted,
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  detailMetricValue: {
+    color: colors.ink,
+    fontSize: 14,
+    fontWeight: '900',
+    marginTop: 4,
+  },
+  caseDetailWarning: {
+    marginTop: 12,
+    borderRadius: 8,
+    backgroundColor: colors.redSoft,
+    borderWidth: 1,
+    borderColor: '#F3B4B4',
+    padding: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  caseDetailWarningText: {
+    flex: 1,
+    color: colors.ink,
+    fontWeight: '800',
+    marginLeft: 8,
+  },
+  caseDetailStep: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#DDE7E0',
+    padding: 10,
+    marginTop: 8,
+  },
+  caseDetailStepNumber: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.green,
+    color: colors.white,
+    textAlign: 'center',
+    lineHeight: 28,
+    fontWeight: '900',
+    marginRight: 10,
+  },
+  caseDetailStepText: {
+    flex: 1,
+    color: colors.ink,
+    fontWeight: '800',
+    lineHeight: 20,
   },
   footer: {
     position: 'absolute',

@@ -26,6 +26,7 @@ const COUNTRIES = [
   { label: 'DR Congo', value: 'drc', defaultLanguage: 'ln', code: 'CD' as CountryCode },
   { label: 'Somalia', value: 'somalia', defaultLanguage: 'so', code: 'SO' as CountryCode },
   { label: 'Nigeria', value: 'nigeria', defaultLanguage: 'ha', code: 'NG' as CountryCode },
+  { label: 'Rwanda', value: 'rwanda', defaultLanguage: 'rw', code: 'RW' as CountryCode },
 ];
 
 const LANGUAGES = [
@@ -115,8 +116,8 @@ export default function SettingsScreen() {
       const readyMessage = status.liteRTRuntimeReady
         ? 'A LiteRT runtime model is stored on this device. SHIFA will try local inference before cloud or protocol fallback.'
         : status.ggufRuntimeReady
-          ? 'A GGUF runtime model is stored on this device. It is ready for the llama.cpp bridge; SHIFA will keep cloud or protocol fallback active until that bridge is installed.'
-          : 'Adapter artifacts are stored on this device. Add a .litertlm, .task, .tflite, or .gguf runtime artifact to R2 for fully local Gemma inference.';
+          ? 'The E2B GGUF runtime model is stored on this device. SHIFA will try offline local inference before cloud or protocol fallback.'
+          : 'No local runtime model is stored on this device yet. Download the E2B GGUF model for offline clinical inference.';
       Alert.alert(
         'Model artifacts ready',
         readyMessage
@@ -162,7 +163,7 @@ export default function SettingsScreen() {
     await saveCHWProfile({
       id: `CHW-${selected.code}-${chwName.trim().toUpperCase().replace(/[^A-Z0-9]+/g, '-').slice(0, 24)}`,
       name: chwName.trim(),
-      country: country as 'sudan' | 'drc' | 'somalia' | 'nigeria',
+      country: country as 'sudan' | 'drc' | 'somalia' | 'nigeria' | 'rwanda',
       countryCode: selected.code,
       language,
       region: region.trim(),
@@ -343,7 +344,7 @@ export default function SettingsScreen() {
           <ReadinessRow
             icon={<Cloud color={isGeminiConfigured() ? colors.green : colors.amber} size={20} />}
             label="Clinical AI"
-            value={modelStatus?.liteRTRuntimeReady ? 'LiteRT runtime model on device' : modelStatus?.ggufRuntimeReady ? 'GGUF model ready for native bridge' : isGeminiConfigured() ? 'Cloud fallback configured' : 'Protocol rules only'}
+            value={modelStatus?.liteRTRuntimeReady ? 'LiteRT runtime model on device' : modelStatus?.ggufRuntimeReady ? 'Offline E2B GGUF ready' : isGeminiConfigured() ? 'Cloud fallback configured' : 'Protocol rules only'}
             tone={modelStatus?.liteRTRuntimeReady || modelStatus?.ggufRuntimeReady || isGeminiConfigured() ? 'good' : 'warn'}
             dim={darkMode}
           />
@@ -352,7 +353,7 @@ export default function SettingsScreen() {
             label="Model files"
             value={
               modelStatus?.configured
-                ? `${modelStatus.liteRTRuntimeReady ? 'LiteRT ready' : modelStatus.ggufRuntimeReady ? 'GGUF ready' : 'adapter only'} • ${modelStatus.requiredDownloadedCount}/${modelStatus.requiredCount} required files • ${formatBytes(modelStatus.totalBytes)}`
+                ? `${modelStatus.liteRTRuntimeReady ? 'LiteRT ready' : modelStatus.ggufRuntimeReady ? 'E2B GGUF ready' : 'runtime missing'} • ${modelStatus.requiredDownloadedCount}/${modelStatus.requiredCount} required files • ${formatBytes(modelStatus.totalBytes)}`
                 : 'Set EXPO_PUBLIC_SHIFA_MODEL_BASE_URL'
             }
             tone={modelStatus?.runtimeReady ? 'good' : 'warn'}
@@ -379,7 +380,7 @@ export default function SettingsScreen() {
             disabled={!modelStatus?.configured || modelDownloading}
           >
             <Download color={colors.white} size={18} />
-            <Text style={styles.modelDownloadText}>{modelDownloading ? modelDownloadLabel : modelStatus?.runtimeReady ? 'Refresh model artifacts' : 'Download model artifacts'}</Text>
+            <Text style={styles.modelDownloadText}>{modelDownloading ? modelDownloadLabel : modelStatus?.runtimeReady ? 'Refresh offline model' : 'Download offline model'}</Text>
           </TouchableOpacity>
         </View>
 
@@ -493,7 +494,7 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 18,
     paddingTop: 10,
-    paddingBottom: 36,
+    paddingBottom: 160,
   },
   header: {
     minHeight: 72,

@@ -3,14 +3,15 @@ import { Buffer } from 'buffer';
 import type { ThreatAlert } from '../../services/alertSMS';
 import { dispatchThreatSMS } from '../../services/alertSMS';
 import { logThreatEvent } from '../../services/threatLog';
+import { envValue } from '../../services/runtimeEnv';
 
 const SHIFA_SERVICE_UUID =
-  process.env.EXPO_PUBLIC_SHIFA_BLE_SERVICE_UUID || '12345678-1234-1234-1234-1234567890ab';
+  envValue('EXPO_PUBLIC_SHIFA_BLE_SERVICE_UUID', 'shifaBleServiceUuid', '12345678-1234-1234-1234-1234567890ab');
 const ALERT_CHAR_UUID =
-  process.env.EXPO_PUBLIC_SHIFA_BLE_ALERT_CHAR_UUID || '12345678-1234-1234-1234-1234567890ac';
-const SCAN_MS = Number(process.env.EXPO_PUBLIC_SHIFA_BLE_SCAN_MS || 15_000);
-const MAX_PEERS = Number(process.env.EXPO_PUBLIC_SHIFA_BLE_MAX_PEERS || 8);
-const ALERT_TTL_MS = Number(process.env.EXPO_PUBLIC_SHIFA_BLE_ALERT_TTL_MS || 30 * 60_000);
+  envValue('EXPO_PUBLIC_SHIFA_BLE_ALERT_CHAR_UUID', 'shifaBleAlertCharUuid', '12345678-1234-1234-1234-1234567890ac');
+const SCAN_MS = Number(envValue('EXPO_PUBLIC_SHIFA_BLE_SCAN_MS', 'shifaBleScanMs', '15000'));
+const MAX_PEERS = Number(envValue('EXPO_PUBLIC_SHIFA_BLE_MAX_PEERS', 'shifaBleMaxPeers', '8'));
+const ALERT_TTL_MS = Number(envValue('EXPO_PUBLIC_SHIFA_BLE_ALERT_TTL_MS', 'shifaBleAlertTtlMs', String(30 * 60_000)));
 
 const seenAlertIds = new Map<string, number>();
 let bleManager: any | null = null;

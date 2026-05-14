@@ -1,10 +1,11 @@
 import NetInfo from '@react-native-community/netinfo';
 import { executeSql, selectRows } from './sqliteExec';
+import { envValue } from './runtimeEnv';
 
 const AT_API_URL = 'https://api.africastalking.com/version1/messaging';
-const AT_USERNAME = process.env.EXPO_PUBLIC_AFRICAS_TALKING_USERNAME;
-const AT_API_KEY = process.env.EXPO_PUBLIC_AFRICAS_TALKING_API_KEY;
-const AT_SENDER = process.env.EXPO_PUBLIC_AFRICAS_TALKING_SENDER_ID ?? 'SHIFA';
+const AT_USERNAME = envValue('EXPO_PUBLIC_AFRICAS_TALKING_USERNAME', 'africasTalkingUsername');
+const AT_API_KEY = envValue('EXPO_PUBLIC_AFRICAS_TALKING_API_KEY', 'africasTalkingApiKey');
+const AT_SENDER = envValue('EXPO_PUBLIC_AFRICAS_TALKING_SENDER_ID', 'africasTalkingSenderId', 'SHIFA');
 
 export interface ThreatAlert {
   threatType: string;

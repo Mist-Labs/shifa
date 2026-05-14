@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   ActivityIndicator,
@@ -18,6 +18,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useNetInfo } from '@react-native-community/netinfo';
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 import * as DocumentPicker from 'expo-document-picker';
+import * as Speech from 'expo-speech';
 import {
   RecordingPresets,
   requestRecordingPermissionsAsync,
@@ -36,6 +37,7 @@ import { analyzeClinicalCase } from '../services/clinicalEngine';
 import { buildEvidenceAsset, EvidenceAsset, getFieldSafeAIMessage } from '../services/gemini';
 import { getHealthDataCenterUrl, getHealthSyncSummary, HealthSyncSummary, syncHealthReports } from '../services/syncReports';
 import { useI18n } from '../services/i18n';
+import { languageDisplayName, textPack, ttsLocale } from '../services/language';
 
 type ConsultStage = 'ready' | 'photo' | 'upload' | 'listening' | 'processing' | 'result' | 'playback';
 
@@ -71,6 +73,7 @@ export default function ClinicScreen() {
   const [patientMenuOpen, setPatientMenuOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [syncSummary, setSyncSummary] = useState<HealthSyncSummary | null>(null);
+  const [profileLanguage, setProfileLanguage] = useState('en');
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [cameraMicrophonePermission, requestCameraMicrophonePermission] = useMicrophonePermissions();
   const audioRecorder = useAudioRecorder(recordingOptions);
@@ -85,7 +88,7 @@ export default function ClinicScreen() {
   const navigation = useNavigation<any>();
   const netInfo = useNetInfo();
   const { darkMode } = useUIPreferences();
-  const { t } = useI18n();
+  const { t, language: uiLanguage } = useI18n();
 
   const clearPatientFields = useCallback(() => {
     setSymptoms('');
@@ -128,12 +131,21 @@ export default function ClinicScreen() {
   useFocusEffect(
     useCallback(() => {
       void getHealthSyncSummary().then(setSyncSummary);
-    }, [])
+      void getActiveCHWProfile()
+        .then((profile) => setProfileLanguage(resolveClinicalLanguage(profile.language, profile.id, uiLanguage)))
+        .catch(() => setProfileLanguage(uiLanguage));
+    }, [uiLanguage])
   );
 
   useEffect(() => {
     return navigation.addListener('tabPress', resetToPatientDetails);
   }, [navigation, resetToPatientDetails]);
+
+  useLayoutEffect(() => {
+    const fullscreenStage = stage === 'photo' || stage === 'listening' || stage === 'processing' || stage === 'playback';
+    navigation.setOptions({ tabBarStyle: fullscreenStage ? { display: 'none' } : undefined });
+    return () => navigation.setOptions({ tabBarStyle: undefined });
+  }, [navigation, stage]);
 
   useEffect(() => {
     if (stage !== 'listening' || !audioState.isRecording) return;
@@ -346,6 +358,8 @@ export default function ClinicScreen() {
     setStage('processing');
     try {
       const profile = await getActiveCHWProfile();
+      const clinicalLanguage = resolveClinicalLanguage(profile.language, profile.id, uiLanguage);
+      setProfileLanguage(clinicalLanguage);
       const nextDecision = await analyzeClinicalCase({
         symptomText: symptoms,
         ageMonths: Number.isFinite(parsed.ageMonths) && parsed.ageMonths !== 0 ? parsed.ageMonths : undefined,
@@ -353,11 +367,12 @@ export default function ClinicScreen() {
         muacCm: Number.isFinite(parsed.muacCm) && parsed.muacCm !== 0 ? parsed.muacCm : undefined,
         bilateralEdema,
         country: profile.country,
-        language: profile.language,
+        language: clinicalLanguage,
         evidence: clinicalEvidence,
         online,
       });
       setDecision(nextDecision);
+      await persistConsultation(nextDecision, false);
       setStage('result');
     } catch (error) {
       setStage('ready');
@@ -365,8 +380,15 @@ export default function ClinicScreen() {
     }
   };
 
-  const handleLogCase = async () => {
-    if (!decision) return;
+  const persistConsultation = async (nextDecision: ClinicalDecision, notify: boolean) => {
+    if (logged) {
+      if (notify) {
+        const syncResult = await syncHealthReports();
+        await getHealthSyncSummary().then(setSyncSummary);
+        Alert.alert(syncResult.syncedCount > 0 ? 'Report sent' : 'Case saved', syncResult.message);
+      }
+      return;
+    }
     const chw = await getActiveCHWProfile();
     await logConsultation({
       chwId: chw.id,
@@ -375,13 +397,17 @@ export default function ClinicScreen() {
       muacCm: Number.isFinite(parsed.muacCm) ? parsed.muacCm : undefined,
       bilateralEdema,
       symptomText: symptoms,
-      decision,
+      decision: nextDecision,
       clinicalPhotoUri: clinicalPhotoUri ?? undefined,
       clinicalUpload: clinicalUpload ?? undefined,
       evidenceAssets: clinicalEvidence.map(({ base64, ...asset }) => asset),
       audioRecordingUri: audioRecordingUri ?? undefined,
     });
     setLogged(true);
+    if (!notify) {
+      void syncHealthReports().then(() => getHealthSyncSummary().then(setSyncSummary));
+      return;
+    }
     const syncResult = await syncHealthReports();
     await getHealthSyncSummary().then(setSyncSummary);
     if (syncResult.offline) {
@@ -398,6 +424,11 @@ export default function ClinicScreen() {
         ? `${syncResult.message}${syncResult.outbreakCount ? ` ${syncResult.outbreakCount} outbreak alert returned.` : ''}`
         : 'This consultation is already synced.'
     );
+  };
+
+  const handleLogCase = async () => {
+    if (!decision) return;
+    await persistConsultation(decision, true);
   };
 
   if (stage === 'listening') {
@@ -462,7 +493,7 @@ export default function ClinicScreen() {
           <Square color={colors.red} fill={colors.red} size={14} />
           <Text style={styles.stopButtonText}>Stop</Text>
         </TouchableOpacity>
-        <Text style={styles.languageText}>Language: Lingala</Text>
+        <Text style={styles.languageText}>{t('language')}: {languageDisplayName(profileLanguage)}</Text>
       </SafeAreaView>
     );
   }
@@ -482,31 +513,33 @@ export default function ClinicScreen() {
                 Use photo or short video to capture the affected body part clearly for AI analysis.
               </Text>
             </View>
-            <View style={styles.cameraModeSwitch}>
-              <TouchableOpacity
-                style={[styles.cameraModeButton, cameraMode === 'picture' && styles.cameraModeButtonActive]}
-                onPress={() => setCameraMode('picture')}
-              >
-                <Camera color={cameraMode === 'picture' ? colors.white : colors.green} size={18} />
-                <Text style={[styles.cameraModeText, cameraMode === 'picture' && styles.cameraModeTextActive]}>Photo</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.cameraModeButton, cameraMode === 'video' && styles.cameraModeButtonActive]}
-                onPress={() => setCameraMode('video')}
-              >
-                <Video color={cameraMode === 'video' ? colors.white : colors.green} size={18} />
-                <Text style={[styles.cameraModeText, cameraMode === 'video' && styles.cameraModeTextActive]}>Video</Text>
-              </TouchableOpacity>
+            <View style={styles.cameraControls}>
+              <View style={styles.cameraModeSwitch}>
+                <TouchableOpacity
+                  style={[styles.cameraModeButton, cameraMode === 'picture' && styles.cameraModeButtonActive]}
+                  onPress={() => setCameraMode('picture')}
+                >
+                  <Camera color={cameraMode === 'picture' ? colors.white : colors.green} size={18} />
+                  <Text style={[styles.cameraModeText, cameraMode === 'picture' && styles.cameraModeTextActive]}>Photo</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.cameraModeButton, cameraMode === 'video' && styles.cameraModeButtonActive]}
+                  onPress={() => setCameraMode('video')}
+                >
+                  <Video color={cameraMode === 'video' ? colors.white : colors.green} size={18} />
+                  <Text style={[styles.cameraModeText, cameraMode === 'video' && styles.cameraModeTextActive]}>Video</Text>
+                </TouchableOpacity>
+              </View>
+              {cameraMode === 'picture' ? (
+                <TouchableOpacity style={styles.shutterButton} onPress={captureClinicalPhoto}>
+                  <View style={styles.shutterInner} />
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity style={[styles.videoShutterButton, recordingClinicalVideo && styles.videoShutterButtonActive]} onPress={recordClinicalVideo}>
+                  <Text style={styles.videoShutterText}>{recordingClinicalVideo ? 'Stop Video' : 'Record Video'}</Text>
+                </TouchableOpacity>
+              )}
             </View>
-            {cameraMode === 'picture' ? (
-              <TouchableOpacity style={styles.shutterButton} onPress={captureClinicalPhoto}>
-                <View style={styles.shutterInner} />
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity style={[styles.videoShutterButton, recordingClinicalVideo && styles.videoShutterButtonActive]} onPress={recordClinicalVideo}>
-                <Text style={styles.videoShutterText}>{recordingClinicalVideo ? 'Stop Video' : 'Record Video'}</Text>
-              </TouchableOpacity>
-            )}
           </View>
         </View>
       </SafeAreaView>
@@ -575,12 +608,9 @@ export default function ClinicScreen() {
         onLogCase={handleLogCase}
         logged={logged}
         syncSummary={syncSummary}
+        language={profileLanguage}
         hasAudio={Boolean(audioRecordingUri)}
         onListen={() => {
-          if (!audioRecordingUri) {
-            Alert.alert('No recording available', 'Record consultation audio before using Listen.');
-            return;
-          }
           setStage('playback');
         }}
       />
@@ -714,6 +744,10 @@ export default function ClinicScreen() {
                 const removed = items.find((item) => item.id === id);
                 if (removed?.uri === clinicalPhotoUri) setClinicalPhotoUri(null);
                 if (removed?.uri === clinicalUpload?.uri) setClinicalUpload(null);
+                if (removed?.uri === audioRecordingUri || removed?.mimeType?.startsWith('audio/')) {
+                  setAudioRecordingUri(null);
+                  setRecordingLevels(Array.from({ length: 36 }, () => 0.12));
+                }
                 return items.filter((item) => item.id !== id);
               });
             }}
@@ -789,9 +823,9 @@ function ResultScreen({
   decision,
   patient,
   onLogCase,
-  onListen,
   logged,
   syncSummary,
+  language,
   hasAudio,
 }: {
   decision: ClinicalDecision;
@@ -805,47 +839,95 @@ function ResultScreen({
   onListen: () => void;
   logged: boolean;
   syncSummary: HealthSyncSummary | null;
+  language: string;
   hasAudio: boolean;
 }) {
   const urgent = decision.decision === 'REFER_URGENT';
   const routine = decision.decision === 'REFER_ROUTINE';
   const mainColor = decisionColor(decision.decision);
   const soft = decisionSoftColor(decision.decision);
+  const copy = textPack(language);
+  const [speaking, setSpeaking] = useState(false);
+  const speakableText = decision.voiceResponse || decision.summary;
+
+  const releaseSpeechAudio = useCallback(() => {
+    setSpeaking(false);
+    void setAudioModeAsync({ allowsRecording: false, playsInSilentMode: false });
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      void Speech.stop();
+      releaseSpeechAudio();
+    };
+  }, [releaseSpeechAudio]);
+
+  const toggleSpeech = useCallback(() => {
+    if (speaking) {
+      void Speech.stop().finally(releaseSpeechAudio);
+      return;
+    }
+
+    setSpeaking(true);
+    void setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+    Speech.speak(speakableText, {
+      language: ttsLocale(language),
+      rate: 0.84,
+      pitch: 1.03,
+      volume: 1,
+      onDone: releaseSpeechAudio,
+      onStopped: releaseSpeechAudio,
+      onError: releaseSpeechAudio,
+    });
+  }, [language, releaseSpeechAudio, speakableText, speaking]);
 
   return (
     <SafeAreaView style={styles.resultScreen}>
       <ScrollView contentContainerStyle={styles.resultContent}>
         <View style={[styles.resultHeader, { backgroundColor: mainColor }, urgent && styles.urgentHeader]}>
-          <View>
-            <Text style={styles.resultDecision}>{urgent ? 'REFER URGENT' : routine ? 'REFER ROUTINE' : 'TREAT'}</Text>
+          <View style={styles.resultHeaderTextGroup}>
+            <Text style={styles.resultDecision}>{copy.decisionLabels[decision.decision]}</Text>
             <Text style={styles.resultSummary}>{decision.summary}</Text>
           </View>
-          {urgent ? <AlertTriangle color={colors.white} size={34} /> : <CheckCircle color={colors.white} size={34} />}
+          <View style={styles.resultHeaderIcon}>
+            {urgent ? <AlertTriangle color={colors.white} size={34} /> : <CheckCircle color={colors.white} size={34} />}
+          </View>
         </View>
 
         <View style={[styles.diagnosisCard, { backgroundColor: soft, borderColor: mainColor }]}>
           <Text style={[styles.diagnosisTitle, { color: mainColor }]}>{decision.primaryDiagnosis}</Text>
-          <Text style={styles.diagnosisText}>Confidence: {Math.round(decision.confidence * 100)}% • {decision.dangerSigns.length} danger sign{decision.dangerSigns.length === 1 ? '' : 's'}</Text>
+          <Text style={styles.diagnosisText}>{copy.metricLabels.confidence}: {Math.round(decision.confidence * 100)}% • {decision.dangerSigns.length} {copy.metricLabels.dangerSigns}</Text>
         </View>
 
         <View style={styles.resultTriageGrid}>
-          <ResultMetric label="Decision" value={urgent ? 'Urgent referral' : routine ? 'Routine referral' : 'Treat here'} color={mainColor} />
-          <ResultMetric label="Audio" value={hasAudio ? 'Attached' : 'None'} color={hasAudio ? colors.green : colors.amber} />
-          <ResultMetric label="Report" value={logged ? 'Saved' : 'Not saved'} color={logged ? colors.green : colors.amber} />
-          <ResultMetric label="Engine" value={readableEngineMode(decision.engineMode)} color={decision.engineMode === 'protocol_fallback' ? colors.amber : colors.green} />
+          <ResultMetric label={copy.metricLabels.decision} value={urgent ? copy.triageLabels.urgent : routine ? copy.triageLabels.routine : copy.triageLabels.treat} color={mainColor} />
+          <ResultMetric label={copy.metricLabels.audio} value={hasAudio ? copy.metricLabels.attached : copy.metricLabels.none} color={hasAudio ? colors.green : colors.amber} />
+          <ResultMetric label={copy.metricLabels.report} value={logged ? copy.metricLabels.saved : copy.metricLabels.notSaved} color={logged ? colors.green : colors.amber} />
+          <ResultMetric label={copy.metricLabels.engine} value={readableEngineMode(decision.engineMode, language)} color={decision.engineMode === 'protocol_fallback' ? colors.amber : colors.green} />
         </View>
 
         {decision.guardrailOverrideReason && (
           <View style={styles.safetyProtocolCard}>
             <AlertTriangle color={colors.red} size={18} />
             <View style={styles.safetyProtocolTextGroup}>
-              <Text style={styles.safetyProtocolTitle}>Safety protocol applied</Text>
+              <Text style={styles.safetyProtocolTitle}>{copy.safetyProtocolTitle}</Text>
               <Text style={styles.safetyProtocolText}>{decision.guardrailOverrideReason}</Text>
             </View>
           </View>
         )}
 
-        <Text style={styles.sectionHeader}>{urgent ? 'BEFORE YOU GO' : routine ? 'REFERRAL STEPS' : 'TREATMENT STEPS'}</Text>
+        <View style={styles.voiceResponseCard}>
+          <Volume2 color={colors.green} size={20} />
+          <View style={styles.voiceResponseTextGroup}>
+            <Text style={styles.voiceResponseTitle}>{copy.resultVoiceTitle}</Text>
+            <Text style={styles.voiceResponseText}>{speakableText}</Text>
+          </View>
+          <TouchableOpacity style={[styles.speakButton, speaking && styles.speakButtonActive]} onPress={toggleSpeech}>
+            <Text style={[styles.speakButtonText, speaking && styles.speakButtonTextActive]}>{speaking ? copy.stop : copy.speak}</Text>
+          </TouchableOpacity>
+        </View>
+
+        <Text style={styles.sectionHeader}>{urgent ? copy.sectionLabels.beforeYouGo : routine ? copy.sectionLabels.referralSteps : copy.sectionLabels.treatmentSteps}</Text>
         {decision.treatmentSteps.map((step, index) => (
           <View key={step} style={styles.instructionRow}>
             <Text style={[styles.instructionNumber, { backgroundColor: mainColor }]}>{index + 1}</Text>
@@ -854,7 +936,7 @@ function ResultScreen({
         ))}
 
         <Text style={[styles.sectionHeader, urgent && styles.dangerHeader]}>
-          {urgent ? 'DANGER SIGNS EN ROUTE' : 'RETURN IF YOU SEE:'}
+          {urgent ? copy.sectionLabels.dangerEnRoute : copy.sectionLabels.returnIfYouSee}
         </Text>
         {decision.dangerSigns.map((sign) => (
           <View key={sign} style={[styles.dangerRow, urgent && styles.dangerRowUrgent]}>
@@ -867,7 +949,7 @@ function ResultScreen({
           <View style={styles.referralCard}>
             <View style={styles.referralHeader}>
               <Text style={styles.referralTitle}>REFERRAL CARD</Text>
-              <Text style={styles.referralBadge}>{urgent ? 'URGENT' : 'ROUTINE'}</Text>
+              <Text style={styles.referralBadge}>{urgent ? copy.triageLabels.urgent : copy.triageLabels.routine}</Text>
             </View>
             <View style={styles.referralGrid}>
               <InfoBlock label="Sex" value="Not recorded" />
@@ -879,7 +961,7 @@ function ResultScreen({
               <Text style={styles.referralDiagnosisLabel}>Diagnosis</Text>
               <Text style={styles.referralDiagnosisText}>{decision.primaryDiagnosis}</Text>
               {decision.guardrailOverrideReason && (
-                <Text style={styles.referralDiagnosisDetail}>Safety protocol applied: {decision.guardrailOverrideReason}</Text>
+                <Text style={styles.referralDiagnosisDetail}>{copy.safetyApplied(decision.guardrailOverrideReason)}</Text>
               )}
               <Text style={styles.referralDiagnosisDetail}>
                 {patient.bilateralEdema ? 'Bilateral edema recorded' : 'Bilateral edema not recorded'}
@@ -902,9 +984,9 @@ function ResultScreen({
       </ScrollView>
 
       <View style={styles.stickyActions}>
-        <TouchableOpacity style={[styles.secondaryAction, !hasAudio && styles.secondaryActionDisabled]} onPress={onListen} disabled={!hasAudio}>
+        <TouchableOpacity style={styles.secondaryAction} onPress={toggleSpeech}>
           <Volume2 color={colors.ink} size={20} />
-          <Text style={styles.secondaryActionText}>Listen</Text>
+          <Text style={styles.secondaryActionText}>{speaking ? copy.stop : copy.speak}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.primaryAction} onPress={onLogCase}>
           <FileText color={colors.white} size={20} />
@@ -935,11 +1017,17 @@ function ResultMetric({ label, value, color }: { label: string; value: string; c
   );
 }
 
-function readableEngineMode(mode?: ClinicalDecision['engineMode']): string {
-  if (mode === 'local_model') return 'Offline model';
-  if (mode === 'cloud_fallback') return 'Cloud fallback';
-  if (mode === 'protocol_fallback') return 'Protocol rules';
-  return 'Clinical engine';
+function readableEngineMode(mode?: ClinicalDecision['engineMode'], language?: string): string {
+  const labels = textPack(language).engineLabels;
+  if (mode === 'local_model') return labels.local_model;
+  if (mode === 'cloud_fallback') return labels.cloud_fallback;
+  if (mode === 'protocol_fallback') return labels.protocol_fallback;
+  return labels.default;
+}
+
+function resolveClinicalLanguage(profileLanguage: string | undefined, profileId: string | undefined, uiLanguage: string): string {
+  if (!profileId || profileId === 'CHW-UNCONFIGURED') return uiLanguage;
+  return profileLanguage || uiLanguage;
 }
 
 function InfoBlock({ label, value }: { label: string; value: string }) {
@@ -1168,6 +1256,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'space-between',
     padding: 20,
+    paddingBottom: 34,
   },
   photoCloseButton: {
     alignSelf: 'flex-start',
@@ -1207,6 +1296,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     padding: 5,
   },
+  cameraControls: {
+    alignItems: 'center',
+    gap: 22,
+    marginBottom: 6,
+  },
   cameraModeButton: {
     minWidth: 112,
     borderRadius: 7,
@@ -1235,7 +1329,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'center',
-    marginBottom: 14,
   },
   shutterInner: {
     width: 52,
@@ -1251,7 +1344,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'center',
-    marginBottom: 14,
   },
   videoShutterButtonActive: {
     backgroundColor: colors.red,
@@ -1263,7 +1355,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
-    paddingBottom: 92,
+    paddingBottom: 164,
   },
   uploadPage: {
     flex: 1,
@@ -1548,8 +1640,8 @@ const styles = StyleSheet.create({
   quickActions: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 22,
-    marginBottom: 22,
+    marginTop: 16,
+    marginBottom: 36,
   },
   quickButton: {
     flex: 1,
@@ -1736,6 +1828,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.night,
     padding: 22,
     justifyContent: 'center',
+    alignItems: 'stretch',
   },
   darkKicker: {
     color: '#34D97B',
@@ -1848,6 +1941,8 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '900',
     marginBottom: 18,
+    textAlign: 'center',
+    alignSelf: 'stretch',
   },
   processingSpinner: {
     marginBottom: 16,
@@ -1914,16 +2009,31 @@ const styles = StyleSheet.create({
     backgroundColor: colors.paper,
   },
   resultContent: {
-    paddingBottom: 104,
+    paddingBottom: 214,
   },
   resultHeader: {
     minHeight: 132,
+    margin: 16,
+    borderRadius: 8,
     paddingHorizontal: 22,
     paddingTop: 24,
     paddingBottom: 20,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+  },
+  resultHeaderTextGroup: {
+    flex: 1,
+    paddingRight: 14,
+  },
+  resultHeaderIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+    flexShrink: 0,
   },
   urgentHeader: {
     minHeight: 158,
@@ -1940,7 +2050,8 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   diagnosisCard: {
-    margin: 16,
+    marginHorizontal: 16,
+    marginBottom: 16,
     borderRadius: 8,
     borderWidth: 1.5,
     padding: 16,
@@ -2008,6 +2119,52 @@ const styles = StyleSheet.create({
     color: colors.ink,
     fontWeight: '800',
     marginTop: 2,
+  },
+  voiceResponseCard: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#CFE8D8',
+    backgroundColor: '#F2FAF5',
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  voiceResponseTextGroup: {
+    flex: 1,
+    marginLeft: 10,
+    marginRight: 10,
+  },
+  voiceResponseTitle: {
+    color: colors.green,
+    fontWeight: '900',
+    fontSize: 13,
+  },
+  voiceResponseText: {
+    color: colors.ink,
+    fontWeight: '700',
+    marginTop: 3,
+    lineHeight: 19,
+  },
+  speakButton: {
+    minWidth: 70,
+    minHeight: 40,
+    borderRadius: 8,
+    backgroundColor: colors.green,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+  },
+  speakButtonActive: {
+    backgroundColor: colors.red,
+  },
+  speakButtonText: {
+    color: colors.white,
+    fontWeight: '900',
+  },
+  speakButtonTextActive: {
+    color: colors.white,
   },
   sectionHeader: {
     color: colors.green,
@@ -2177,22 +2334,23 @@ const styles = StyleSheet.create({
   },
   stickyActions: {
     position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    minHeight: 92,
+    left: 16,
+    right: 16,
+    bottom: 78,
+    minHeight: 76,
+    borderRadius: 8,
     backgroundColor: colors.paper,
-    borderTopWidth: 1.5,
-    borderTopColor: colors.line,
+    borderWidth: 1,
+    borderColor: colors.line,
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingTop: 12,
+    padding: 10,
+    ...fieldShadow,
   },
   resultOfflineNotice: {
     position: 'absolute',
     left: 16,
     right: 16,
-    bottom: 98,
+    bottom: 164,
     minHeight: 48,
     borderRadius: 24,
     backgroundColor: '#EDEFEA',

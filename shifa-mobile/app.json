@@ -25,7 +25,10 @@
         "android.permission.BLUETOOTH_ADMIN",
         "android.permission.BLUETOOTH_SCAN",
         "android.permission.BLUETOOTH_CONNECT",
-        "android.permission.BLUETOOTH_ADVERTISE"
+        "android.permission.BLUETOOTH_ADVERTISE",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
       ]
     },
     "plugins": [
@@ -61,6 +64,11 @@
           "bluetoothAlwaysPermission": "Allow SHIFA to relay emergency Guard alerts to nearby SHIFA devices over Bluetooth."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "b3ecbc79-6702-460f-8ee0-1f8f6fab1c9f"
+      }
+    }
   }
 }

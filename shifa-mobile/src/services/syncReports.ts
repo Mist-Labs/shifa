@@ -1,8 +1,9 @@
 import NetInfo from '@react-native-community/netinfo';
-import { getActiveCHWProfile } from './chwProfile';
+import { CHWProfile, getActiveCHWProfile } from './chwProfile';
 import { executeSql, selectRows } from './sqliteExec';
+import { envValue } from './runtimeEnv';
 
-const API_BASE_URL = (process.env.EXPO_PUBLIC_SHIFA_API_URL || 'http://10.0.2.2:3000').replace(/\/$/, '');
+const API_BASE_URL = envValue('EXPO_PUBLIC_SHIFA_API_URL', 'shifaApiUrl', 'http://10.0.2.2:3000').replace(/\/$/, '');
 
 export interface HealthSyncResult {
   attempted: boolean;
@@ -58,7 +59,8 @@ export async function getHealthSyncSummary(): Promise<HealthSyncSummary> {
 }
 
 export async function syncHealthReports(): Promise<HealthSyncResult> {
-  const pending = await loadPendingReports();
+  const profile = await getActiveCHWProfile();
+  const pending = await loadPendingReports(profile);
   const pendingCount = pending.consultations.length + pending.threatEvents.length;
   if (pendingCount === 0) {
     return {
@@ -85,7 +87,6 @@ export async function syncHealthReports(): Promise<HealthSyncResult> {
     };
   }
 
-  const profile = await getActiveCHWProfile();
   const payload = {
     consultations: pending.consultations,
     threatEvents: pending.threatEvents,
@@ -102,7 +103,8 @@ export async function syncHealthReports(): Promise<HealthSyncResult> {
   };
 
   try {
-    const response = await fetch(getHealthDataCenterUrl(), {
+    const syncUrl = getHealthDataCenterUrl();
+    const response = await fetch(syncUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -148,7 +150,7 @@ export async function syncHealthReports(): Promise<HealthSyncResult> {
   }
 }
 
-async function loadPendingReports(): Promise<{ consultations: any[]; threatEvents: any[] }> {
+async function loadPendingReports(profile: CHWProfile): Promise<{ consultations: any[]; threatEvents: any[] }> {
   const consultationRows = await selectRows<any>(
     `SELECT * FROM consultations WHERE synced = 0 ORDER BY created_at ASC LIMIT 100`
   );
@@ -198,8 +200,8 @@ async function loadPendingReports(): Promise<{ consultations: any[]; threatEvent
         },
         latitude: nullToUndefined(row.latitude),
         longitude: nullToUndefined(row.longitude),
-        country: inferCountry(row.chw_id),
-        language: inferLanguage(row.chw_id),
+        country: profile.country,
+        language: profile.language,
         createdAt: new Date(Number(row.created_at || Date.now())).toISOString(),
         synced: false,
       };
@@ -255,18 +257,4 @@ function parseJson(value: string | null | undefined, fallback: any = {}): any {
 
 function nullToUndefined<T>(value: T | null | undefined): T | undefined {
   return value === null || value === undefined ? undefined : value;
-}
-
-function inferCountry(chwId: string): 'sudan' | 'drc' | 'somalia' | 'nigeria' {
-  if (chwId.includes('-NG-')) return 'nigeria';
-  if (chwId.includes('-CD-')) return 'drc';
-  if (chwId.includes('-SO-')) return 'somalia';
-  return 'sudan';
-}
-
-function inferLanguage(chwId: string): 'ar' | 'so' | 'fr' | 'ln' | 'rw' | 'ha' {
-  if (chwId.includes('-NG-')) return 'ha';
-  if (chwId.includes('-SO-')) return 'so';
-  if (chwId.includes('-CD-')) return 'ln';
-  return 'ar';
 }
