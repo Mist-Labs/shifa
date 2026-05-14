@@ -106,7 +106,7 @@ Final metrics after guardrails:
 
 Android LiteRT cannot load a LoRA adapter directly. The adapter files (`adapter_model.safetensors`, `adapter_config.json`) require merging into the base model before any mobile format conversion.
 
-Three export paths were attempted:
+Four export paths were attempted:
 
 ### Path A: `save_pretrained_merged(save_method="merged_16bit")`
 
@@ -130,14 +130,26 @@ Three export paths were attempted:
 
 - `litert-torch-nightly` installed and ran successfully against the merged model on Hugging Face
 - Gemma 4 architecture recognized (`Gemma4ForConditionalGeneration`)
-- Export ran but OOM'd during conversion because the 16 GB merged model plus conversion overhead exceeded Kaggle's available RAM
+- E4B export ran but OOM'd during conversion because the 16 GB merged model plus conversion overhead exceeded Kaggle's available RAM
+
+### Path E: E2B fine-tuned LiteRT export attempt
+
+After E2B fine-tuning and validation succeeded, the same LiteRT export path was attempted for the smaller `google/gemma-4-E2B-it` model:
+
+- Downloaded the E2B adapter artifacts from R2 into a fresh Kaggle session
+- Attempted to merge LoRA into a standalone Hugging Face model with `save_pretrained_merged(save_method="merged_16bit")`
+- Attempted the `litert-torch export_hf` path against the merged E2B model
+- Export still OOM'd on Kaggle, confirming that the blocker is available RAM during export/conversion rather than model training or validation
+- Conclusion: fine-tuned LiteRT-LM export requires a larger high-RAM instance (for example A100 40GB+ for E2B, A100 80GB safer for E4B)
 
 ### Current Status
 
-- F16 GGUF exported successfully to `/tmp/shifa-gemma4-gguf/shifa.F16.gguf`
-- Q4_K_M GGUF exported and uploaded to R2 as `models/gguf/shifa-gemma4-e4b-q4km.gguf`
-- LiteRT `.litertlm` export is blocked by RAM and likely requires a larger instance
-- Mobile app includes a native `llama.rn` bridge for GGUF execution, with Gemini API cloud fallback retained for demo safety until physical-device testing is complete
+- E4B F16 GGUF exported successfully to `/tmp/shifa-gemma4-gguf/shifa.F16.gguf`
+- E4B Q4_K_M GGUF exported and uploaded to R2 as `models/gguf/shifa-gemma4-e4b-q4km.gguf`
+- E2B Q4_K_M GGUF exported successfully and uploaded to R2 as `models/shifa-gemma4-e2b-finetuned/shifa-gemma4-e2b-q4km.gguf`
+- Fine-tuned LiteRT `.litertlm` export was attempted for both E4B and E2B, and both attempts were blocked by Kaggle RAM limits
+- Mobile app includes a native `llama.rn` bridge for GGUF execution, with Gemini API cloud fallback and deterministic protocol fallback retained for demo safety until physical-device testing is complete
+- The Kotlin LiteRT bridge is implemented as the future path once a fine-tuned LiteRT-compatible runtime artifact is produced on larger infrastructure
 
 ## 6. Disk & Memory Constraints on Kaggle
 
@@ -197,6 +209,7 @@ Final protocol adherence after fuzzy matching: **100%**.
 | Under-referral of urgent cases | Critical | Deterministic guardrail layer |
 | 4-bit merge `NotImplementedError` | High | Switched to GGUF path |
 | Kaggle disk limits for export | High | `/tmp` workaround + streamed upload |
+| Fine-tuned LiteRT export OOM | High | Documented E4B/E2B OOM; ship GGUF via llama.rn; retry LiteRT on larger RAM instance |
 | Strict string matching in validation | Medium | Fuzzy + synonym matching |
 
 ## Submission Reminder

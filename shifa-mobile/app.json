@@ -7,11 +7,17 @@
       "**/*"
     ],
     "ios": {
+      "bundleIdentifier": "org.mistlabs.shifa",
       "supportsTablet": true,
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "SHIFA Guard needs microphone access for threat detection",
-        "NSCameraUsageDescription": "SHIFA needs camera for photo analysis and threat detection",
-        "NSLocationWhenInUseUsageDescription": "SHIFA needs location for case tracking and outbreak mapping"
+        "NSMicrophoneUsageDescription": "SHIFA uses the microphone to record patient consultations and clinical video evidence.",
+        "NSCameraUsageDescription": "SHIFA uses the camera to capture clinical photos and video evidence for case analysis.",
+        "NSLocationWhenInUseUsageDescription": "SHIFA uses location to attach approximate case location for sync and outbreak mapping.",
+        "NSPhotoLibraryUsageDescription": "SHIFA lets you attach clinical photos, videos, and documents from this device to a patient case.",
+        "NSPhotoLibraryAddUsageDescription": "SHIFA may save clinical evidence captured during a consultation to the device when requested.",
+        "NSBluetoothAlwaysUsageDescription": "SHIFA Guard can relay emergency alerts to nearby SHIFA devices over Bluetooth.",
+        "NSBluetoothPeripheralUsageDescription": "SHIFA Guard can advertise emergency alerts to nearby SHIFA devices over Bluetooth.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -35,13 +41,15 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "SHIFA needs camera access"
+          "cameraPermission": "SHIFA uses the camera to capture clinical photos and video evidence for case analysis.",
+          "microphonePermission": "SHIFA uses the microphone to record patient consultations and clinical video evidence."
         }
       ],
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "SHIFA needs location"
+          "locationWhenInUsePermission": "SHIFA uses location to attach approximate case location for sync and outbreak mapping.",
+          "locationAlwaysAndWhenInUsePermission": "SHIFA uses location to attach approximate case location for sync and outbreak mapping."
         }
       ],
       "expo-sqlite",

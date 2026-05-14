@@ -1,8 +1,6 @@
 const fs = require('fs');
 const path = require('path');
 
-const appJson = require('./app.json');
-
 loadDotEnv();
 
 const publicEnv = {
@@ -21,13 +19,13 @@ const publicEnv = {
   shifaBleAlertTtlMs: process.env.EXPO_PUBLIC_SHIFA_BLE_ALERT_TTL_MS || '1800000',
 };
 
-module.exports = {
-  ...appJson.expo,
+module.exports = ({ config }) => ({
+  ...config,
   extra: {
-    ...(appJson.expo.extra || {}),
+    ...(config.extra || {}),
     shifa: publicEnv,
   },
-};
+});
 
 function loadDotEnv() {
   const envPath = path.join(__dirname, '.env');

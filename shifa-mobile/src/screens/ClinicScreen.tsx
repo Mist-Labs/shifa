@@ -46,13 +46,45 @@ const recordingOptions = {
   isMeteringEnabled: true,
 };
 
-const processingSteps = [
-  'Extracting symptoms',
-  'Protocol: Sudan SAM',
-  'Checking danger signs',
-  'Differential diagnosis',
-  'Calculating treatment',
-];
+const COUNTRY_LABELS: Record<string, string> = {
+  sudan: 'Sudan',
+  drc: 'DRC',
+  somalia: 'Somalia',
+  nigeria: 'Nigeria',
+  rwanda: 'Rwanda',
+};
+
+function countryLabel(country: string): string {
+  return COUNTRY_LABELS[country] || titleCase(country || 'local');
+}
+
+function inferProtocolLabel(input: {
+  country: string;
+  symptomText: string;
+  muacCm?: number;
+  bilateralEdema: boolean;
+}): string {
+  const text = input.symptomText.toLowerCase();
+  const protocol =
+    input.bilateralEdema || (Number.isFinite(input.muacCm) && Number(input.muacCm) < 11.5) || /\b(sam|muac|malnutrition|oedema|edema)\b/.test(text)
+      ? 'SAM'
+      : /\b(diarrhea|diarrhoea|cholera|watery stool|loose stool)\b/.test(text)
+        ? 'Cholera'
+        : /\b(pneumonia|cough|breath|chest indrawing)\b/.test(text)
+          ? 'Pneumonia'
+          : /\b(malaria|fever|febrile)\b/.test(text)
+            ? 'Fever'
+            : 'IMCI';
+  return `Protocol: ${countryLabel(input.country)} - ${protocol}`;
+}
+
+function titleCase(value: string): string {
+  return value
+    .split(/[\s_-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ');
+}
 
 export default function ClinicScreen() {
   const [stage, setStage] = useState<ConsultStage>('ready');
@@ -74,6 +106,7 @@ export default function ClinicScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [syncSummary, setSyncSummary] = useState<HealthSyncSummary | null>(null);
   const [profileLanguage, setProfileLanguage] = useState('en');
+  const [profileCountry, setProfileCountry] = useState('sudan');
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [cameraMicrophonePermission, requestCameraMicrophonePermission] = useMicrophonePermissions();
   const audioRecorder = useAudioRecorder(recordingOptions);
@@ -132,7 +165,10 @@ export default function ClinicScreen() {
     useCallback(() => {
       void getHealthSyncSummary().then(setSyncSummary);
       void getActiveCHWProfile()
-        .then((profile) => setProfileLanguage(resolveClinicalLanguage(profile.language, profile.id, uiLanguage)))
+        .then((profile) => {
+          setProfileCountry(profile.country);
+          setProfileLanguage(resolveClinicalLanguage(profile.language, profile.id, uiLanguage));
+        })
         .catch(() => setProfileLanguage(uiLanguage));
     }, [uiLanguage])
   );
@@ -193,6 +229,21 @@ export default function ClinicScreen() {
     bilateralEdema ||
     clinicalEvidence.length > 0;
   const online = Boolean(netInfo.isConnected && netInfo.type !== 'none');
+  const processingSteps = useMemo(
+    () => [
+      'Extracting symptoms',
+      inferProtocolLabel({
+        country: profileCountry,
+        symptomText: symptoms,
+        muacCm: parsed.muacCm,
+        bilateralEdema,
+      }),
+      'Checking danger signs',
+      'Differential diagnosis',
+      'Calculating treatment',
+    ],
+    [bilateralEdema, parsed.muacCm, profileCountry, symptoms]
+  );
 
   const beginConsult = async () => {
     if (recorderActionInFlight.current || audioState.isRecording || stage === 'listening') return;
@@ -359,6 +410,7 @@ export default function ClinicScreen() {
     try {
       const profile = await getActiveCHWProfile();
       const clinicalLanguage = resolveClinicalLanguage(profile.language, profile.id, uiLanguage);
+      setProfileCountry(profile.country);
       setProfileLanguage(clinicalLanguage);
       const nextDecision = await analyzeClinicalCase({
         symptomText: symptoms,
