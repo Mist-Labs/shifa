@@ -114,10 +114,10 @@ export default function SettingsScreen() {
       });
       setModelStatus(status);
       const readyMessage = status.liteRTRuntimeReady
-        ? 'A LiteRT runtime model is stored on this device. SHIFA will try local inference before cloud or protocol fallback.'
+        ? `A LiteRT runtime model is stored on this device. Offline voice input is ${status.sttReady ? 'ready' : 'not installed yet'}. SHIFA will try local inference before cloud or protocol fallback.`
         : status.ggufRuntimeReady
-          ? 'The E2B GGUF runtime model is stored on this device. SHIFA will try offline local inference before cloud or protocol fallback.'
-          : 'No local runtime model is stored on this device yet. Download the E2B GGUF model for offline clinical inference.';
+          ? `The E2B GGUF runtime model is stored on this device. Offline voice input is ${status.sttReady ? 'ready' : 'not installed yet'}. SHIFA will try offline local inference before cloud or protocol fallback.`
+          : 'No local runtime model is stored on this device yet. Download the E2B LiteRT-LM model for offline clinical inference.';
       Alert.alert(
         'Model artifacts ready',
         readyMessage

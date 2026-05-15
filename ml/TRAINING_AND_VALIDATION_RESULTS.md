@@ -7,7 +7,7 @@ Submission-facing summary of the Gemma 4 fine-tuning and validation runs for SHI
 | Model | Purpose | Status |
 | --- | --- | --- |
 | Gemma 4 E4B | Higher-quality clinical reasoning model for demo/server and high-end-device path | Trained, validated, GGUF exported |
-| Gemma 4 E2B | Mobile-first model for mid-range Android deployment | Trained, validated, GGUF exported |
+| Gemma 4 E2B | Mobile-first model for mid-range Android deployment | Trained, validated, LiteRT-LM and GGUF exported |
 
 Both models were fine-tuned with Unsloth QLoRA on the cleaned SHIFA WHO/IMCI clinical dataset and validated on the same 60-case IMCI test set.
 
@@ -87,19 +87,54 @@ E2B trained in 55m 50s on Kaggle T4 and is the preferred candidate for mid-range
 
 Evidence file: `ml/reports/e2b_validation_metrics.json` on R2.
 
-## E2B Mobile Runtime Artifact
+## E2B Mobile Runtime Artifacts
 
 | Artifact | Value |
 | --- | --- |
-| Runtime format | GGUF Q4_K_M |
-| Main model | `models/shifa-gemma4-e2b-finetuned/shifa-gemma4-e2b-q4km.gguf` |
-| Size | 3,427,878,240 bytes, approximately 3.2 GB |
-| Multimodal projector | `models/shifa-gemma4-e2b-finetuned/shifa-gemma4-e2b-mmproj-f16.gguf` |
-| Projector size | 985,653,664 bytes, approximately 940 MB |
-| Runtime path | `llama.rn` / llama.cpp bridge |
+| Primary runtime format | LiteRT-LM `.litertlm` |
+| Primary model | `models/shifa-gemma4-e2b-finetuned/shifa-gemma4-e2b-finetuned.litertlm` |
+| Export host | Vast.ai A100 SXM4 80GB |
+| Export result | Successful |
+| Packaged artifact size | 3,271,645,136 bytes, approximately 3.1 GB |
+| Export log size | 2.19 GiB quantized from 8.75 GiB per-layer embedder |
+| Primary runtime path | Native Kotlin LiteRT / MediaPipe `LlmInference` bridge |
+| Fallback runtime format | GGUF Q4_K_M |
+| Fallback model | `models/shifa-gemma4-e2b-finetuned/shifa-gemma4-e2b-q4km.gguf` |
+| Fallback size | 3,427,878,240 bytes, approximately 3.2 GB |
+| Fallback runtime path | `llama.rn` / llama.cpp bridge |
 | Delivery model | First-run user-approved download from R2 |
 
-The E2B GGUF is the practical offline Android runtime target. It is not bundled into the APK because a multi-GB model would create an impractical install size. The mobile app asks the user to download the model on first launch and falls back to cloud/protocol mode if the user skips setup.
+The E2B LiteRT-LM artifact is now the preferred offline Android runtime target. The E2B GGUF remains available as a fallback runtime. Neither multi-GB artifact is bundled into the APK because it would create an impractical install size. The mobile app asks the user to download the LiteRT-LM model on first launch and falls back to cloud/protocol mode if the user skips setup.
+
+The first-run offline setup now also includes the multilingual Whisper base speech-to-text model (`ggml-base.bin`, approximately 142 MB). This allows recorded patient speech to be converted into editable symptom text before the local LiteRT/GGUF clinical model runs. The STT model does not alter the validated clinical model weights, validation guardrails, or scoring logic; it only improves offline voice input routing.
+
+## Physical Android Smoke Test
+
+Physical-device testing confirmed that the E2B GGUF runtime can load and complete offline clinical analysis on Android after the first-run model download.
+
+| Test | Result |
+| --- | --- |
+| Offline E2B GGUF analysis | Completed successfully on Android |
+| Offline Kinyarwanda output | Completed successfully |
+| Offline Kinyarwanda speech playback | Completed successfully |
+| Offline speech-to-text pack | Added to first-run model download; physical-device transcription validation pending |
+| Case logging | Saved locally |
+| Data center sync | Confirmed after connectivity was available |
+| Cloud Gemini fallback | Completed successfully when online |
+
+Observed GGUF latency on the tested Android device was still high: a full offline clinical response took roughly 4 minutes, with local-language generation/translation adding additional time. This confirmed offline capability, but not field-fast GGUF latency. The subsequent LiteRT-LM export is expected to be the faster mobile runtime path and still requires physical-device validation.
+
+After this test, the mobile runtime was tightened for faster no-retrain inference. The model weights, validation guardrails, clinical parser, and safety override logic were not changed. Only runtime generation settings were adjusted:
+
+| Setting | Previous | Updated | Reason |
+| --- | ---: | ---: | --- |
+| Context window | 4096 | 2048 | The mobile prompt is short; smaller context reduces local memory/work |
+| Batch size | 256 | 128 | Lower peak runtime pressure on Android |
+| Max output tokens | 768 | 512 | Keeps enough room for compact JSON while reducing generation time |
+| Temperature | 0.1 | 0 | Deterministic clinical output |
+| Prompt style | Full JSON response | Compact JSON response | Same schema, shorter user-facing strings |
+
+This should improve GGUF latency without materially changing clinical accuracy, because the learned model and deterministic WHO/IMCI guardrails are unchanged. The remaining risk is schema truncation on unusually long local-language responses; if seen in testing, the output budget should be raised from 512 to 640 tokens.
 
 ## Guardrail Layer
 
@@ -135,7 +170,8 @@ The most important safety result is shared across both models:
 
 - E2B is more schema-fragile than E4B. It sometimes emits malformed or truncated JSON, so the validator and mobile app use a robust parser plus deterministic guardrails.
 - E2B remains more conservative than E4B and can over-refer non-severe pneumonia/ARI cases.
-- LiteRT fine-tuned export is still a tooling/infrastructure milestone. E2B GGUF via llama.cpp/llama.rn is the current practical offline runtime path.
+- Physical Android GGUF inference is functional but slow on the tested device. A full GGUF response can take several minutes, especially for local-language output.
+- E2B LiteRT-LM export succeeded after moving from Kaggle to Vast.ai A100/high-RAM infrastructure. Physical-device LiteRT validation is still required before replacing GGUF performance observations with LiteRT benchmark claims.
 - Validation set size is still small. The next clinical milestone is a broader blinded validation set with more non-urgent respiratory, nutrition, malaria, and diarrhea cases.
 
 ## Evidence Artifacts
@@ -146,6 +182,8 @@ The most important safety result is shared across both models:
 | `ml/reports/validation_metrics.json` | E4B validation evidence |
 | `ml/reports/e2b_training_manifest.json` | E2B training evidence, currently on R2 |
 | `ml/reports/e2b_validation_metrics.json` | E2B validation evidence, currently on R2 |
+| `ml/reports/runtime_manifest.json` | E2B LiteRT-LM export evidence |
+| `models/shifa-gemma4-e2b-finetuned/shifa-gemma4-e2b-finetuned.litertlm` | E2B primary LiteRT-LM runtime model on R2 |
 | `models/shifa-gemma4-e2b-finetuned/shifa-gemma4-e2b-q4km.gguf` | E2B offline runtime model on R2 |
 | `models/shifa-gemma4-e2b-finetuned/shifa-gemma4-e2b-mmproj-f16.gguf` | Optional multimodal projector on R2 |
 | `ml/reports/upload_manifest.json` | R2 upload proof |
@@ -155,7 +193,6 @@ The most important safety result is shared across both models:
 ## Next Phase
 
 1. Download and commit the E2B report artifacts from R2 if they are not present locally.
-2. Test first-run model download on Android with the E2B GGUF.
-3. Run the 60-case suite through the on-device runtime and compare against Kaggle validation.
-4. Attempt E2B LiteRT export on a larger GPU/RAM instance if time remains.
-5. Record the final demo: symptom input -> model output -> guardrail decision -> referral/treatment UI.
+2. Download the E2B `.litertlm` on Android and validate LiteRT inference on a physical device.
+3. Run the 60-case suite through the on-device LiteRT runtime and compare against Kaggle validation.
+4. Keep GGUF as fallback and optimize only if LiteRT is unavailable on a target device.

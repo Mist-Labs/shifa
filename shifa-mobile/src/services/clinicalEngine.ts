@@ -53,6 +53,40 @@ const ROUTINE_OVERRIDE_PATTERNS: Array<[RegExp, string]> = [
 
 export async function analyzeClinicalCase(input: ClinicalEngineInput): Promise<ClinicalDecision> {
   let decision: ClinicalDecision;
+  const hasEvidence = input.evidence.length > 0;
+  const hasAudioEvidence = input.evidence.some((asset) => asset.kind === 'audio' || asset.mimeType.startsWith('audio/'));
+  const hasTypedSymptoms = input.symptomText.trim().length > 0;
+
+  if (hasEvidence && input.online && isGeminiConfigured()) {
+    try {
+      decision = await analyzeCloudClinicalCase(input);
+      return applyClinicalSafetyLayer(decision, input);
+    } catch (error) {
+      if (error instanceof ShifaAIError && !error.retryable) throw error;
+      if (hasAudioEvidence && !hasTypedSymptoms) {
+        throw new ShifaAIError(
+          error instanceof Error ? error.message : 'Audio evidence analysis failed',
+          'This recording has not been converted to text. Reconnect for cloud audio analysis, or type the spoken symptoms and measurements before running offline analysis.',
+          true
+        );
+      }
+      if (!hasTypedSymptoms) {
+        throw new ShifaAIError(
+          error instanceof Error ? error.message : 'Evidence analysis failed',
+          'Voice, photo, or video-only cases need cloud analysis. Type the key symptoms and measurements, or reconnect and try again.',
+          true
+        );
+      }
+    }
+  }
+
+  if (hasEvidence && !hasTypedSymptoms && (!input.online || !isGeminiConfigured())) {
+    throw new ShifaAIError(
+      'Evidence-only case cannot be analyzed by local text model',
+      'Voice, photo, or video-only cases need cloud analysis. Type the key symptoms and measurements, or reconnect and try again.',
+      false
+    );
+  }
 
   const localDecision = await analyzeWithLiteRT(input).catch(() => null);
   if (localDecision) {

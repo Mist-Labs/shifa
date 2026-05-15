@@ -34,10 +34,11 @@ import { getActiveCHWProfile } from '../services/chwProfile';
 import { colors, decisionColor, decisionSoftColor, fieldShadow, highContrastShadow } from '../design/system';
 import { useUIPreferences } from '../services/uiPreferences';
 import { analyzeClinicalCase } from '../services/clinicalEngine';
-import { buildEvidenceAsset, EvidenceAsset, getFieldSafeAIMessage } from '../services/gemini';
+import { buildEvidenceAsset, EvidenceAsset, getFieldSafeAIMessage, isGeminiConfigured } from '../services/gemini';
 import { getHealthDataCenterUrl, getHealthSyncSummary, HealthSyncSummary, syncHealthReports } from '../services/syncReports';
 import { useI18n } from '../services/i18n';
 import { languageDisplayName, textPack, ttsLocale } from '../services/language';
+import { transcribeOfflinePatientAudio } from '../services/offlineSpeech';
 
 type ConsultStage = 'ready' | 'photo' | 'upload' | 'listening' | 'processing' | 'result' | 'playback';
 
@@ -99,6 +100,7 @@ export default function ClinicScreen() {
   const [clinicalUpload, setClinicalUpload] = useState<{ uri: string; name: string; mimeType?: string } | null>(null);
   const [clinicalEvidence, setClinicalEvidence] = useState<EvidenceAsset[]>([]);
   const [audioRecordingUri, setAudioRecordingUri] = useState<string | null>(null);
+  const [transcribingAudio, setTranscribingAudio] = useState(false);
   const [recordingLevels, setRecordingLevels] = useState<number[]>(Array.from({ length: 36 }, () => 0.12));
   const [cameraMode, setCameraMode] = useState<'picture' | 'video'>('picture');
   const [recordingClinicalVideo, setRecordingClinicalVideo] = useState(false);
@@ -386,11 +388,28 @@ export default function ClinicScreen() {
       if (nextAudioUri) {
         const audioEvidence = await buildEvidenceAsset({
           uri: nextAudioUri,
-          kind: 'file',
+          kind: 'audio',
           name: `consultation-audio-${Date.now()}.m4a`,
           mimeType: 'audio/mp4',
         });
         setClinicalEvidence((items) => [...items, audioEvidence]);
+        setTranscribingAudio(true);
+        try {
+          const transcript = await transcribeOfflinePatientAudio({
+            uri: nextAudioUri,
+            language: profileLanguage,
+          });
+          if (transcript) {
+            setSymptoms((current) => {
+              const trimmed = current.trim();
+              return trimmed ? `${trimmed}\n${transcript}` : transcript;
+            });
+          }
+        } catch (transcriptionError) {
+          console.warn('Offline audio transcription failed', transcriptionError);
+        } finally {
+          setTranscribingAudio(false);
+        }
       }
       setStage('ready');
     } catch (error) {
@@ -404,6 +423,16 @@ export default function ClinicScreen() {
   const runClinicalAnalysis = async () => {
     if (!hasClinicalInput) {
       Alert.alert('Case details required', 'Enter symptoms, measurements, edema status, or attach evidence before analysis.');
+      return;
+    }
+    const hasAudioEvidence = clinicalEvidence.some((asset) => asset.kind === 'audio' || asset.mimeType.startsWith('audio/'));
+    const hasSymptomText = symptoms.trim().length > 0;
+    const canUseCloudAudio = online && isGeminiConfigured();
+    if (hasAudioEvidence && !canUseCloudAudio && !hasSymptomText) {
+      Alert.alert(
+        'Voice needs cloud analysis',
+        'This recording has not been converted to text. Reconnect for cloud audio analysis, or type the spoken symptoms and measurements before running offline analysis.'
+      );
       return;
     }
     setStage('processing');
@@ -540,7 +569,9 @@ export default function ClinicScreen() {
           ))}
         </View>
         <Text style={styles.timer}>{formatDuration(audioState.durationMillis)}</Text>
-        <Text style={styles.darkBody}>{audioState.isRecording ? 'Recording audio...' : 'Preparing microphone...'}</Text>
+        <Text style={styles.darkBody}>
+          {audioState.isRecording ? 'Recording audio...' : transcribingAudio ? 'Converting speech to text...' : 'Preparing microphone...'}
+        </Text>
         <TouchableOpacity style={styles.stopButton} onPress={stopListening}>
           <Square color={colors.red} fill={colors.red} size={14} />
           <Text style={styles.stopButtonText}>Stop</Text>
@@ -693,6 +724,8 @@ export default function ClinicScreen() {
     <SafeAreaView style={[styles.screen, darkMode && styles.homeDarkScreen]}>
       <ScrollView
         contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        alwaysBounceVertical
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -1033,18 +1066,18 @@ function ResultScreen({
           </Text>
           <Text style={styles.reportStatusDestination} numberOfLines={1}>{syncSummary?.destination ?? getHealthDataCenterUrl()}</Text>
         </View>
-      </ScrollView>
 
-      <View style={styles.stickyActions}>
-        <TouchableOpacity style={styles.secondaryAction} onPress={toggleSpeech}>
-          <Volume2 color={colors.ink} size={20} />
-          <Text style={styles.secondaryActionText}>{speaking ? copy.stop : copy.speak}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.primaryAction} onPress={onLogCase}>
-          <FileText color={colors.white} size={20} />
-          <Text style={styles.primaryActionText}>{logged ? 'Saved' : 'Log Case'}</Text>
-        </TouchableOpacity>
-      </View>
+        <View style={styles.stickyActions}>
+          <TouchableOpacity style={styles.secondaryAction} onPress={toggleSpeech}>
+            <Volume2 color={colors.ink} size={20} />
+            <Text style={styles.secondaryActionText}>{speaking ? copy.stop : copy.speak}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.primaryAction} onPress={onLogCase}>
+            <FileText color={colors.white} size={20} />
+            <Text style={styles.primaryActionText}>{logged ? 'Saved' : 'Log Case'}</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -2061,7 +2094,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.paper,
   },
   resultContent: {
-    paddingBottom: 214,
+    paddingBottom: 118,
   },
   resultHeader: {
     minHeight: 132,
@@ -2385,10 +2418,9 @@ const styles = StyleSheet.create({
     marginTop: 7,
   },
   stickyActions: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    bottom: 78,
+    marginHorizontal: 16,
+    marginTop: 18,
+    marginBottom: 18,
     minHeight: 76,
     borderRadius: 8,
     backgroundColor: colors.paper,

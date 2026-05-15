@@ -45,7 +45,7 @@ export async function analyzeWithLiteRT(input: {
   const modelPath = await getLiteRTModelPath();
   if (!modelPath) return null;
 
-  await nativeLiteRT.init(modelPath, 'GPU', 1024);
+  await nativeLiteRT.init(modelPath, 'GPU', 512);
   const raw = await nativeLiteRT.generate(buildClinicalPrompt(input));
   const parsed = extractJsonObject(raw);
   const decision = normalizeCloudClinicalDecision(parsed);
@@ -76,9 +76,10 @@ function buildClinicalPrompt(input: {
     '<start_of_turn>system',
     'You are SHIFA, an offline clinical decision support assistant for trained community health workers.',
     'Follow WHO IMCI protocols and the country protocol module exactly.',
-    'Respond only as valid JSON with: decision, primary_diagnosis, differential_diagnoses, confidence, treatment_protocol, referral, monitoring, danger_signs, reasoning_trace, voice_response.',
+    'Respond only as compact valid JSON with: decision, primary_diagnosis, differential_diagnoses, confidence, treatment_protocol, referral, monitoring, danger_signs, reasoning_trace, voice_response.',
     'Valid decisions are TREAT, REFER_URGENT, REFER_ROUTINE. Never output MONITOR.',
     'Default to REFER_URGENT when danger signs are present, confidence is below 0.70, or age/weight needed for dosing is missing.',
+    'Keep output short: max 3 treatment steps, max 4 danger signs, max 2 monitoring instructions, one-sentence reasoning_trace, one-sentence voice_response.',
     `Country: ${input.country}. CHW language: ${languageName} (${input.language}).`,
     `Write every user-facing JSON string in ${languageName}: diagnosis, treatment, referral, danger signs, reasoning, and voice response. Keep only decision enum values in English.`,
     '<end_of_turn>',

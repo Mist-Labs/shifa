@@ -37,9 +37,18 @@ import {
 
 const Tab = createBottomTabNavigator();
 
-type OnboardingStep = 'splash' | 'modelSetup' | 'country' | 'language' | 'done';
+type OnboardingStep = 'splash' | 'modelSetup' | 'modelReady' | 'country' | 'language' | 'done';
 const SPLASH_DURATION_MS = 2000;
 const DOWNLOAD_BUFFER_BYTES = 1024 * 1024 * 1024;
+const DEFAULT_OFFLINE_MODEL_BYTES = 3419596601;
+const SETUP_MESSAGES = [
+  'Preparing WHO IMCI clinical protocols...',
+  'Loading danger sign detection...',
+  'Installing offline speech-to-text...',
+  'Preparing multilingual field guidance...',
+  'Configuring offline triage decisions...',
+  'Securing local clinical inference...',
+];
 
 const countries = [
   { label: 'Sudan', local: 'السودان', flag: '🇸🇩' },
@@ -69,6 +78,8 @@ export default function App() {
   const [modelDownloading, setModelDownloading] = useState(false);
   const [modelDownloadLabel, setModelDownloadLabel] = useState('');
   const [modelDownloadProgress, setModelDownloadProgress] = useState(0);
+  const [modelDownloadBytes, setModelDownloadBytes] = useState({ written: 0, total: 0 });
+  const [modelSetupMessage, setModelSetupMessage] = useState(SETUP_MESSAGES[0]);
   const onboardingOpacity = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -154,17 +165,22 @@ export default function App() {
     setModelDownloadProgress(0);
     setModelDownloadLabel('Preparing download');
     try {
-      const status = await downloadClinicalModelArtifacts((done, total, filename, percent) => {
+      const status = await downloadClinicalModelArtifacts((done, total, filename, percent, bytesWritten, totalBytes) => {
         const itemProgress = percent ?? 0;
         const overallProgress = total ? (done + itemProgress) / total : itemProgress;
-        setModelDownloadProgress(Math.min(1, overallProgress));
+        const boundedProgress = Math.min(1, overallProgress);
+        setModelDownloadProgress(boundedProgress);
+        setModelDownloadBytes({ written: bytesWritten ?? 0, total: totalBytes ?? neededBytes });
+        setModelSetupMessage(SETUP_MESSAGES[Math.min(SETUP_MESSAGES.length - 1, Math.floor(boundedProgress * SETUP_MESSAGES.length))]);
         setModelDownloadLabel(`${filename} • ${Math.round(itemProgress * 100)}%`);
       });
       setModelStatus(status);
       setFreeDiskBytes(await getFreeDiskBytes());
       await dismissModelSetup();
-      Alert.alert('Offline model ready', 'SHIFA can now run local clinical inference on this device.');
-      setOnboardingStep('done');
+      setModelDownloadProgress(1);
+      setModelDownloadBytes({ written: status.estimatedDownloadBytes || neededBytes, total: status.estimatedDownloadBytes || neededBytes });
+      setModelSetupMessage('SHIFA is ready to work offline.');
+      setOnboardingStep('modelReady');
     } catch (error) {
       Alert.alert('Model download failed', error instanceof Error ? error.message : 'Unable to download the offline model.');
     } finally {
@@ -215,7 +231,7 @@ export default function App() {
             </View>
             <Text style={styles.setupTitle}>Set up offline clinical AI</Text>
             <Text style={styles.setupSubtitle}>
-              Download the mobile Gemma E2B model once. SHIFA will use it for offline assessments when the device has no signal.
+              Download the mobile Gemma E2B model and offline voice input pack once. SHIFA will use them for assessments when the device has no signal.
             </Text>
 
             <View style={styles.modelInfoCard}>
@@ -223,7 +239,7 @@ export default function App() {
                 <HardDrive color={colors.green} size={20} />
                 <View style={styles.modelInfoCopy}>
                   <Text style={styles.modelInfoLabel}>Download size</Text>
-                  <Text style={styles.modelInfoValue}>{formatBytes(modelStatus?.estimatedDownloadBytes ?? 3427878240)}</Text>
+                  <Text style={styles.modelInfoValue}>{formatBytes(modelStatus?.estimatedDownloadBytes ?? DEFAULT_OFFLINE_MODEL_BYTES)}</Text>
                 </View>
               </View>
               <View style={styles.modelInfoRow}>
@@ -244,9 +260,16 @@ export default function App() {
 
             {modelDownloading && (
               <View style={styles.downloadProgressGroup}>
+                <View style={styles.downloadProgressHeader}>
+                  <Text style={styles.downloadPercent}>{Math.round(modelDownloadProgress * 100)}%</Text>
+                  <Text style={styles.downloadBytes}>
+                    {formatBytes(modelDownloadBytes.written)} / {formatBytes(modelDownloadBytes.total || modelStatus?.estimatedDownloadBytes || DEFAULT_OFFLINE_MODEL_BYTES)}
+                  </Text>
+                </View>
                 <View style={styles.downloadTrack}>
                   <View style={[styles.downloadFill, { width: `${Math.round(modelDownloadProgress * 100)}%` }]} />
                 </View>
+                <Text style={styles.downloadPurpose}>{modelSetupMessage}</Text>
                 <Text style={styles.downloadLabel}>{modelDownloadLabel}</Text>
               </View>
             )}
@@ -262,6 +285,40 @@ export default function App() {
 
             <TouchableOpacity style={styles.secondaryButton} onPress={continueWithoutOfflineModel} disabled={modelDownloading}>
               <Text style={styles.secondaryButtonText}>Continue with cloud/protocol fallback</Text>
+            </TouchableOpacity>
+          </View>
+          )}
+
+          {onboardingStep === 'modelReady' && (
+          <View style={styles.setupPage}>
+            <View style={styles.readyIcon}>
+              <CheckCircle color={colors.white} size={42} strokeWidth={2.5} />
+            </View>
+            <Text style={styles.setupTitle}>SHIFA is ready offline</Text>
+            <Text style={styles.setupSubtitle}>
+              The clinical AI model is stored on this device. You can assess patients even when the network drops.
+            </Text>
+            <View style={styles.readyCard}>
+              <View style={styles.readyRow}>
+                <CheckCircle color={colors.green} size={20} />
+                <Text style={styles.readyText}>Offline clinical inference enabled</Text>
+              </View>
+              <View style={styles.readyRow}>
+                <CheckCircle color={colors.green} size={20} />
+                <Text style={styles.readyText}>Offline speech-to-text model installed</Text>
+              </View>
+              <View style={styles.readyRow}>
+                <CheckCircle color={colors.green} size={20} />
+                <Text style={styles.readyText}>WHO/IMCI safety guardrails active</Text>
+              </View>
+              <View style={styles.readyRow}>
+                <CheckCircle color={colors.green} size={20} />
+                <Text style={styles.readyText}>Results can be spoken in the selected CHW language</Text>
+              </View>
+            </View>
+            <TouchableOpacity style={styles.continueButton} onPress={() => setOnboardingStep('done')}>
+              <Text style={styles.continueText}>Enter SHIFA</Text>
+              <ChevronRight color={colors.white} size={22} />
             </TouchableOpacity>
           </View>
           )}
@@ -657,22 +714,79 @@ const styles = StyleSheet.create({
   },
   downloadProgressGroup: {
     marginBottom: 12,
+    backgroundColor: colors.white,
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.lineStrong,
+    padding: 14,
+  },
+  downloadProgressHeader: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  downloadPercent: {
+    color: colors.green,
+    fontSize: 24,
+    fontWeight: '900',
+  },
+  downloadBytes: {
+    color: colors.ink,
+    fontSize: 13,
+    fontWeight: '800',
   },
   downloadTrack: {
-    height: 8,
-    borderRadius: 4,
+    height: 10,
+    borderRadius: 5,
     backgroundColor: '#DCE8DF',
     overflow: 'hidden',
   },
   downloadFill: {
-    height: 8,
-    borderRadius: 4,
+    height: 10,
+    borderRadius: 5,
     backgroundColor: colors.green,
+  },
+  downloadPurpose: {
+    color: colors.ink,
+    fontSize: 14,
+    fontWeight: '900',
+    marginTop: 12,
   },
   downloadLabel: {
     color: colors.muted,
     fontSize: 12,
     fontWeight: '700',
-    marginTop: 8,
+    marginTop: 5,
+  },
+  readyIcon: {
+    width: 86,
+    height: 86,
+    borderRadius: 43,
+    backgroundColor: colors.green,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 28,
+  },
+  readyCard: {
+    backgroundColor: colors.white,
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.lineStrong,
+    marginTop: 10,
+    marginBottom: 10,
+    padding: 14,
+  },
+  readyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  readyText: {
+    flex: 1,
+    color: colors.ink,
+    fontSize: 15,
+    fontWeight: '800',
+    marginLeft: 10,
   },
 });

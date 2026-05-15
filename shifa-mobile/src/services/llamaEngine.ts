@@ -19,6 +19,10 @@ const STOP_WORDS = [
   '<|END_OF_TURN_TOKEN|>',
   '<|endoftext|>',
 ];
+const LOCAL_CONTEXT_TOKENS = 2048;
+const LOCAL_BATCH_TOKENS = 128;
+const LOCAL_THREAD_COUNT = 4;
+const LOCAL_MAX_OUTPUT_TOKENS = 512;
 
 export interface LlamaRuntimeInfo {
   ready: boolean;
@@ -55,10 +59,10 @@ export async function analyzeWithLlama(input: {
   await llama.clearCache(false).catch(() => undefined);
   const result = await llama.completion({
     prompt: buildClinicalPrompt(input),
-    n_predict: 768,
-    temperature: 0.1,
-    top_p: 0.95,
-    penalty_repeat: 1.05,
+    n_predict: LOCAL_MAX_OUTPUT_TOKENS,
+    temperature: 0,
+    top_p: 0.9,
+    penalty_repeat: 1.02,
     stop: STOP_WORDS,
   });
 
@@ -81,9 +85,9 @@ async function getOrCreateContext(modelPath: string): Promise<LlamaContext> {
   await releaseLlamaEngine();
   context = await initLlama({
     model: modelPath,
-    n_ctx: 4096,
-    n_batch: 256,
-    n_threads: 4,
+    n_ctx: LOCAL_CONTEXT_TOKENS,
+    n_batch: LOCAL_BATCH_TOKENS,
+    n_threads: LOCAL_THREAD_COUNT,
     n_gpu_layers: 99,
     use_mlock: false,
     use_mmap: true,
@@ -114,9 +118,10 @@ function buildClinicalPrompt(input: {
     '<start_of_turn>system',
     'You are SHIFA, an offline clinical decision support assistant for trained community health workers.',
     'Follow WHO IMCI protocols and the country protocol module exactly.',
-    'Respond only as valid JSON with: decision, primary_diagnosis, differential_diagnoses, confidence, treatment_protocol, referral, monitoring, danger_signs, reasoning_trace, voice_response.',
+    'Respond only as compact valid JSON with: decision, primary_diagnosis, differential_diagnoses, confidence, treatment_protocol, referral, monitoring, danger_signs, reasoning_trace, voice_response.',
     'Valid decisions are TREAT, REFER_URGENT, REFER_ROUTINE. Never output MONITOR.',
     'Default to REFER_URGENT when danger signs are present, confidence is below 0.70, or age/weight needed for dosing is missing.',
+    'Keep output short: max 3 treatment steps, max 4 danger signs, max 2 monitoring instructions, one-sentence reasoning_trace, one-sentence voice_response.',
     `Country: ${input.country}. CHW language: ${languageName} (${input.language}).`,
     `Write every user-facing JSON string in ${languageName}: diagnosis, treatment, referral, danger signs, reasoning, and voice response. Keep only decision enum values in English.`,
     '<end_of_turn>',

@@ -3,6 +3,7 @@
     "name": "SHIFA",
     "slug": "shifa-health",
     "version": "1.0.0",
+    "icon": "./assets/icon.png",
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -22,6 +23,10 @@
     },
     "android": {
       "package": "org.mistlabs.shifa",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#006B3A"
+      },
       "permissions": [
         "android.permission.RECORD_AUDIO",
         "android.permission.CAMERA",

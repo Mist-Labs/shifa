@@ -14,7 +14,7 @@ const GEMINI_MODEL = envValue('EXPO_PUBLIC_GEMINI_MODEL', 'geminiModel', 'gemini
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 const RETRY_DELAYS_MS = [700, 1400, 2600];
 
-export type EvidenceKind = 'image' | 'video' | 'pdf' | 'file';
+export type EvidenceKind = 'image' | 'video' | 'audio' | 'pdf' | 'file';
 
 export interface EvidenceAsset {
   id: string;
@@ -116,7 +116,7 @@ export async function analyzeCloudClinicalCase(input: {
     {
       text:
         'You are SHIFA clinical decision support for trained community health workers in Sudan, DRC, Somalia, Rwanda, and crisis clinics. ' +
-        'Analyze the patient text and attached evidence. Use WHO IMCI and SAM field-triage caution. ' +
+        'Analyze the patient text and attached evidence. Audio evidence may contain the spoken symptoms, age, weight, MUAC, duration, and danger signs; interpret it in the selected CHW language before making the clinical decision. Use WHO IMCI and SAM field-triage caution. ' +
         `The CHW selected ${languageName}. Write every user-facing string in ${languageName}: primaryDiagnosis, summary, treatmentSteps, dangerSigns, returnInstructions, referral.messageForFacility, and voiceResponse. ` +
         'Keep only enum values in English: decision and referral.urgency. Do not mix English into the response except drug names, measurements, acronyms, and protocol terms such as ORS, RUTF, MUAC, SAM, or IMCI. ' +
         'Do not invent facts not present. If evidence is poor or measurements are missing, lower confidence and state immediate safe next action. ' +

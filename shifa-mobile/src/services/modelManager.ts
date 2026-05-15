@@ -6,16 +6,35 @@ const MODEL_BASE_URL = envValue('EXPO_PUBLIC_SHIFA_MODEL_BASE_URL', 'shifaModelB
 const MODEL_DIR = `${FileSystem.documentDirectory ?? ''}models/shifa-gemma4-e2b-finetuned/`;
 const MODEL_SETUP_MARKER = `${MODEL_DIR}.setup-dismissed`;
 
-type RuntimeKind = 'litert' | 'gguf';
+type RuntimeKind = 'litert' | 'gguf' | 'stt';
 
 const MODEL_ARTIFACTS = [
   {
-    key: 'models/shifa-gemma4-e2b-finetuned/shifa-gemma4-e2b-q4km.gguf',
-    filename: 'shifa-gemma4-e2b-q4km.gguf',
+    key: 'models/shifa-gemma4-e2b-finetuned/shifa-gemma4-e2b-finetuned.litertlm',
+    filename: 'shifa-gemma4-e2b-finetuned.litertlm',
     required: true,
     runtime: true,
-    runtimeKind: 'gguf' as RuntimeKind,
+    runtimeKind: 'litert' as RuntimeKind,
     downloadByDefault: true,
+    estimatedBytes: 3271645136,
+  },
+  {
+    key: 'models/stt/ggml-base.bin',
+    filename: 'ggml-base.bin',
+    required: false,
+    runtime: false,
+    runtimeKind: 'stt' as RuntimeKind,
+    downloadByDefault: true,
+    estimatedBytes: 147951465,
+    url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin',
+  },
+  {
+    key: 'models/shifa-gemma4-e2b-finetuned/shifa-gemma4-e2b-q4km.gguf',
+    filename: 'shifa-gemma4-e2b-q4km.gguf',
+    required: false,
+    runtime: true,
+    runtimeKind: 'gguf' as RuntimeKind,
+    downloadByDefault: false,
     estimatedBytes: 3427878240,
   },
   {
@@ -27,7 +46,6 @@ const MODEL_ARTIFACTS = [
     downloadByDefault: false,
     estimatedBytes: 985653664,
   },
-  { key: 'models/shifa-gemma4-e2b-finetuned/shifa-gemma4-e2b-finetuned.litertlm', filename: 'shifa-gemma4-e2b-finetuned.litertlm', required: false, runtime: true, runtimeKind: 'litert' as RuntimeKind, downloadByDefault: false },
   { key: 'models/shifa-gemma4-e2b-finetuned/shifa-gemma4-e2b-finetuned.task', filename: 'shifa-gemma4-e2b-finetuned.task', required: false, runtime: true, runtimeKind: 'litert' as RuntimeKind, downloadByDefault: false },
   { key: 'models/shifa-gemma4-e2b-finetuned/shifa-gemma4-e2b-finetuned.tflite', filename: 'shifa-gemma4-e2b-finetuned.tflite', required: false, runtime: true, runtimeKind: 'litert' as RuntimeKind, downloadByDefault: false },
 ];
@@ -49,6 +67,8 @@ export interface ModelArtifactStatus {
   liteRTModelPath?: string;
   ggufRuntimeReady: boolean;
   ggufModelPath?: string;
+  sttReady: boolean;
+  sttModelPath?: string;
   totalBytes: number;
   directory: string;
   baseUrl: string;
@@ -77,6 +97,7 @@ export async function getClinicalModelStatus(): Promise<ModelArtifactStatus> {
   const runtime = statuses.find((item) => item.artifact.runtime && item.exists);
   const liteRTRuntime = statuses.find((item) => item.artifact.runtimeKind === 'litert' && item.exists);
   const ggufRuntime = statuses.find((item) => item.artifact.runtimeKind === 'gguf' && item.exists);
+  const sttRuntime = statuses.find((item) => item.artifact.runtimeKind === 'stt' && item.exists);
   const setupDismissedInfo = await FileSystem.getInfoAsync(MODEL_SETUP_MARKER);
   const defaultDownloads = statuses.filter((item) => item.artifact.downloadByDefault !== false);
   return {
@@ -88,6 +109,8 @@ export async function getClinicalModelStatus(): Promise<ModelArtifactStatus> {
     liteRTModelPath: liteRTRuntime ? `${MODEL_DIR}${liteRTRuntime.artifact.filename}` : undefined,
     ggufRuntimeReady: Boolean(ggufRuntime),
     ggufModelPath: ggufRuntime ? `${MODEL_DIR}${ggufRuntime.artifact.filename}` : undefined,
+    sttReady: Boolean(sttRuntime),
+    sttModelPath: sttRuntime ? `${MODEL_DIR}${sttRuntime.artifact.filename}` : undefined,
     downloadedCount: statuses.filter((item) => item.exists).length,
     requiredDownloadedCount: required.filter((item) => item.exists).length,
     requiredCount: required.length,
@@ -110,9 +133,14 @@ export async function getGGUFModelPath(): Promise<string | null> {
   return status.ggufModelPath ?? null;
 }
 
+export async function getOfflineSTTModelPath(): Promise<string | null> {
+  const status = await getClinicalModelStatus();
+  return status.sttModelPath ?? null;
+}
+
 export async function shouldShowModelSetup(): Promise<boolean> {
   const status = await getClinicalModelStatus();
-  return status.configured && !status.runtimeReady && !status.setupDismissed;
+  return status.configured && (!status.runtimeReady || !status.sttReady) && !status.setupDismissed;
 }
 
 export async function dismissModelSetup(): Promise<void> {
@@ -130,7 +158,9 @@ export async function getFreeDiskBytes(): Promise<number | null> {
   return getFreeDiskStorageAsync ? getFreeDiskStorageAsync() : null;
 }
 
-export async function downloadClinicalModelArtifacts(onProgress?: (done: number, total: number, filename: string, percent?: number) => void): Promise<ModelArtifactStatus> {
+export async function downloadClinicalModelArtifacts(
+  onProgress?: (done: number, total: number, filename: string, percent?: number, bytesWritten?: number, totalBytes?: number) => void
+): Promise<ModelArtifactStatus> {
   if (!MODEL_BASE_URL) throw new Error('EXPO_PUBLIC_SHIFA_MODEL_BASE_URL is not configured.');
   await FileSystem.makeDirectoryAsync(MODEL_DIR, { intermediates: true });
 
@@ -143,7 +173,7 @@ export async function downloadClinicalModelArtifacts(onProgress?: (done: number,
     const needsDownload = !info.exists || !isCompleteArtifact(currentSize, artifact.estimatedBytes);
     if (needsDownload) {
       if (info.exists) await FileSystem.deleteAsync(localPath, { idempotent: true });
-      const remoteUrl = `${MODEL_BASE_URL}/${artifact.key}`;
+      const remoteUrl = artifact.url ?? `${MODEL_BASE_URL}/${artifact.key}`;
       try {
         const download = FileSystem.createDownloadResumable(
           remoteUrl,
@@ -152,7 +182,7 @@ export async function downloadClinicalModelArtifacts(onProgress?: (done: number,
           (progress) => {
             const total = progress.totalBytesExpectedToWrite || artifact.estimatedBytes || 0;
             const percent = total ? progress.totalBytesWritten / total : undefined;
-            onProgress?.(index, artifacts.length, artifact.filename, percent);
+            onProgress?.(index, artifacts.length, artifact.filename, percent, progress.totalBytesWritten, total);
           }
         );
         await download.downloadAsync();
@@ -161,7 +191,7 @@ export async function downloadClinicalModelArtifacts(onProgress?: (done: number,
         if (artifact.required) throw error;
       }
     }
-    onProgress?.(index + 1, artifacts.length, artifact.filename, 1);
+    onProgress?.(index + 1, artifacts.length, artifact.filename, 1, artifact.estimatedBytes, artifact.estimatedBytes);
   }
 
   return getClinicalModelStatus();

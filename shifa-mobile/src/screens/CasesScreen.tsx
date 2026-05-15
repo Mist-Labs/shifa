@@ -101,43 +101,10 @@ export default function CasesScreen() {
 
   return (
     <SafeAreaView style={styles.screen}>
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>{t('todayCases')}</Text>
-          <Text style={styles.subtitle}>
-            {counts.total} {t('total')} • {counts.synced} {t('synced')}
-          </Text>
-        </View>
-        <View style={styles.headerMetric}>
-          <Text style={styles.headerMetricValue}>{syncSummary?.queuedReports ?? Math.max(counts.total - counts.synced, 0)}</Text>
-          <Text style={styles.headerMetricLabel}>queued</Text>
-        </View>
-      </View>
-
-      <View style={styles.syncPanel}>
-        <View style={styles.syncPanelTop}>
-          <Text style={styles.syncPanelTitle}>Data center sync</Text>
-          <Text style={[styles.syncPanelState, syncSummary?.failedReports ? styles.syncPanelStateFailed : styles.syncPanelStateReady]}>
-            {syncSummary?.failedReports ? 'Needs attention' : syncSummary?.queuedReports ? 'Queued' : 'Current'}
-          </Text>
-        </View>
-        <Text style={styles.syncPanelDestination} numberOfLines={1}>{syncSummary?.destination ?? getHealthDataCenterUrl()}</Text>
-        <View style={styles.syncStats}>
-          <SyncStat label="Sent" value={syncSummary?.sentReports ?? counts.synced} />
-          <SyncStat label="Retrying" value={syncSummary?.retryingReports ?? 0} />
-          <SyncStat label="Failed" value={syncSummary?.failedReports ?? 0} danger />
-        </View>
-        <Text style={styles.syncPanelFoot}>
-          {syncSummary?.lastAttemptAt ? `Last attempt ${formatDateTime(syncSummary.lastAttemptAt)}` : 'No sync attempt yet'}
-        </Text>
-        <TouchableOpacity style={styles.syncNowButton} onPress={syncNow}>
-          <RotateCcw color={colors.white} size={18} />
-          <Text style={styles.syncNowText}>{t('sync')}</Text>
-        </TouchableOpacity>
-      </View>
-
       <ScrollView
-        contentContainerStyle={styles.list}
+        contentContainerStyle={styles.pageContent}
+        keyboardShouldPersistTaps="handled"
+        alwaysBounceVertical
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -147,51 +114,88 @@ export default function CasesScreen() {
           />
         }
       >
-        {items.length === 0 && (
-          <View style={styles.emptyCard}>
-            <UploadCloud color={colors.green} size={30} />
-            <Text style={styles.emptyTitle}>{t('noCasesLogged')}</Text>
-            <Text style={styles.emptyText}>{t('noCasesText')}</Text>
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.title}>{t('todayCases')}</Text>
+            <Text style={styles.subtitle}>
+              {counts.total} {t('total')} • {counts.synced} {t('synced')}
+            </Text>
           </View>
-        )}
+          <View style={styles.headerMetric}>
+            <Text style={styles.headerMetricValue}>{syncSummary?.queuedReports ?? Math.max(counts.total - counts.synced, 0)}</Text>
+            <Text style={styles.headerMetricLabel}>queued</Text>
+          </View>
+        </View>
 
-        {items.map((item) => {
-          const color = decisionColor(item.decision);
-          return (
-            <TouchableOpacity key={item.id} style={styles.caseRow} onPress={() => openCase(item)} activeOpacity={0.86}>
-              <View style={styles.caseBody}>
-                <View style={styles.caseTop}>
-                  <View style={[styles.decisionDot, { backgroundColor: color }]} />
-                  <View style={styles.caseTitleGroup}>
-                    <Text style={styles.caseTitle} numberOfLines={1}>{item.title}</Text>
-                    <Text style={styles.caseTime}>{formatTime(item.createdAt)}</Text>
+        <View style={styles.syncPanel}>
+          <View style={styles.syncPanelTop}>
+            <Text style={styles.syncPanelTitle}>Data center sync</Text>
+            <Text style={[styles.syncPanelState, syncSummary?.failedReports ? styles.syncPanelStateFailed : styles.syncPanelStateReady]}>
+              {syncSummary?.failedReports ? 'Needs attention' : syncSummary?.queuedReports ? 'Queued' : 'Current'}
+            </Text>
+          </View>
+          <Text style={styles.syncPanelDestination} numberOfLines={1}>{syncSummary?.destination ?? getHealthDataCenterUrl()}</Text>
+          <View style={styles.syncStats}>
+            <SyncStat label="Sent" value={syncSummary?.sentReports ?? counts.synced} />
+            <SyncStat label="Retrying" value={syncSummary?.retryingReports ?? 0} />
+            <SyncStat label="Failed" value={syncSummary?.failedReports ?? 0} danger />
+          </View>
+          <Text style={styles.syncPanelFoot}>
+            {syncSummary?.lastAttemptAt ? `Last attempt ${formatDateTime(syncSummary.lastAttemptAt)}` : 'No sync attempt yet'}
+          </Text>
+          <TouchableOpacity style={styles.syncNowButton} onPress={syncNow}>
+            <RotateCcw color={colors.white} size={18} />
+            <Text style={styles.syncNowText}>{t('sync')}</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.list}>
+          {items.length === 0 && (
+            <View style={styles.emptyCard}>
+              <UploadCloud color={colors.green} size={30} />
+              <Text style={styles.emptyTitle}>{t('noCasesLogged')}</Text>
+              <Text style={styles.emptyText}>{t('noCasesText')}</Text>
+            </View>
+          )}
+
+          {items.map((item) => {
+            const color = decisionColor(item.decision);
+            return (
+              <TouchableOpacity key={item.id} style={styles.caseRow} onPress={() => openCase(item)} activeOpacity={0.86}>
+                <View style={styles.caseBody}>
+                  <View style={styles.caseTop}>
+                    <View style={[styles.decisionDot, { backgroundColor: color }]} />
+                    <View style={styles.caseTitleGroup}>
+                      <Text style={styles.caseTitle} numberOfLines={1}>{item.title}</Text>
+                      <Text style={styles.caseTime}>{formatTime(item.createdAt)}</Text>
+                    </View>
+                    <View style={[styles.iconBadge, item.synced ? styles.iconBadgeSent : styles.iconBadgePending]}>
+                      {item.synced ? (
+                        <CheckCircle color={colors.green} size={16} />
+                      ) : (
+                        <Clock color="#64748B" size={16} />
+                      )}
+                    </View>
+                    <TouchableOpacity
+                      accessibilityRole="button"
+                      accessibilityLabel={`Delete ${item.kind === 'consultation' ? 'consultation' : 'Guard event'}`}
+                      style={styles.deleteButton}
+                      onPress={() => confirmDelete(item)}
+                    >
+                      <Trash2 color={colors.red} size={18} />
+                    </TouchableOpacity>
                   </View>
-                  <View style={[styles.iconBadge, item.synced ? styles.iconBadgeSent : styles.iconBadgePending]}>
-                    {item.synced ? (
-                      <CheckCircle color={colors.green} size={16} />
-                    ) : (
-                      <Clock color="#64748B" size={16} />
-                    )}
+                  <View style={styles.caseStatusRow}>
+                    <Text style={[styles.decisionText, { color }]}>{readableDecision(item.decision, t)}</Text>
+                    <Text style={[styles.syncBadge, item.synced ? styles.syncBadgeSent : styles.syncBadgePending]}>
+                      {item.synced ? 'Sent to data center' : 'Queued for sync'}
+                    </Text>
                   </View>
-                  <TouchableOpacity
-                    accessibilityRole="button"
-                    accessibilityLabel={`Delete ${item.kind === 'consultation' ? 'consultation' : 'Guard event'}`}
-                    style={styles.deleteButton}
-                    onPress={() => confirmDelete(item)}
-                  >
-                    <Trash2 color={colors.red} size={18} />
-                  </TouchableOpacity>
                 </View>
-                <View style={styles.caseStatusRow}>
-                  <Text style={[styles.decisionText, { color }]}>{readableDecision(item.decision, t)}</Text>
-                  <Text style={[styles.syncBadge, item.synced ? styles.syncBadgeSent : styles.syncBadgePending]}>
-                    {item.synced ? 'Sent to data center' : 'Queued for sync'}
-                  </Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-          );
-        })}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
       </ScrollView>
 
       <Modal visible={Boolean(selectedCase)} animationType="slide" transparent onRequestClose={() => setSelectedCase(null)}>
@@ -284,6 +288,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F6F8F5',
   },
+  pageContent: {
+    paddingBottom: 150,
+  },
   header: {
     minHeight: 84,
     flexDirection: 'row',
@@ -326,7 +333,7 @@ const styles = StyleSheet.create({
   },
   list: {
     padding: 16,
-    paddingBottom: 150,
+    paddingTop: 14,
   },
   syncPanel: {
     marginHorizontal: 16,
