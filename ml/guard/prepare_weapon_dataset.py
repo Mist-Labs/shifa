@@ -43,7 +43,8 @@ LABEL_MAP = {
 
 
 def category_names(features: Any) -> list[str]:
-    category = features["objects"].feature["category"]
+    objects = features["objects"]
+    category = objects.feature["category"] if hasattr(objects, "feature") else objects["category"]
     return list(getattr(category, "names", []))
 
 
