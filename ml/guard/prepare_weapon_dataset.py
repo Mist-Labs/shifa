@@ -14,6 +14,43 @@ from finetune.common import env, resolve_path, write_json
 
 DEFAULT_DATASET = "Subh775/WeaponDetection"
 CLASS_NAMES = ["HANDGUN", "RIFLE", "SHOTGUN", "HEAVY_WEAPON", "RPG", "KNIFE", "PERSON"]
+
+# Integer category IDs for Subh775/WeaponDetection — 29 classes, 0-indexed.
+# Source: https://huggingface.co/datasets/Subh775/WeaponDetection (Classes section)
+# The HuggingFace feature schema carries no ClassLabel names for this dataset,
+# so we hardcode the mapping here.
+DATASET_INT_TO_LABEL: dict[int, str] = {
+    0:  "weapons",
+    1:  "Aggressor",
+    2:  "Blood",
+    3:  "Guns",
+    4:  "Guns perspective",
+    5:  "Hand",
+    6:  "Heavy Gun",
+    7:  "Knife",
+    8:  "Knife_Deploy",
+    9:  "Knife_Weapon",
+    10: "Long guns",
+    11: "Person",
+    12: "Pistol",
+    13: "Rifle",
+    14: "Shotgun",
+    15: "Stabbing",
+    16: "Victim",
+    17: "al",          # junk label — will not match LABEL_MAP, skipped
+    18: "guns",
+    19: "handgun",
+    20: "heavyweapon",
+    21: "larga",       # Spanish/Portuguese "long" (arma larga = long gun) → RIFLE
+    22: "person",
+    23: "pistol",
+    24: "pistols",
+    25: "rifle",
+    26: "shotgun",
+    27: "violence",    # junk label — will not match LABEL_MAP, skipped
+    28: "weapon",
+}
+
 LABEL_MAP = {
     "guns": "HANDGUN",
     "guns perspective": "HANDGUN",
@@ -23,6 +60,7 @@ LABEL_MAP = {
     "pistols": "HANDGUN",
     "rifle": "RIFLE",
     "long guns": "RIFLE",
+    "larga": "RIFLE",           # arma larga = long gun
     "shotgun": "SHOTGUN",
     "heavy gun": "HEAVY_WEAPON",
     "heavygun": "HEAVY_WEAPON",
@@ -43,6 +81,12 @@ LABEL_MAP = {
 
 
 def category_names(features: Any) -> list[str]:
+    """
+    Attempt to extract ClassLabel names from the HuggingFace feature schema.
+    For Subh775/WeaponDetection this returns [] because the category feature
+    is a plain int64 with no ClassLabel attached. Callers should fall back to
+    DATASET_INT_TO_LABEL in that case.
+    """
     objects = features["objects"]
     category = objects.feature["category"] if hasattr(objects, "feature") else objects["category"]
     return list(getattr(category, "names", []))
@@ -72,7 +116,7 @@ def export_split(dataset: Any, split: str, out_dir: Path, label_names: list[str]
 
     stats: dict[str, Any] = {"images": 0, "boxes": 0, "skipped": 0, "class_counts": {name: 0 for name in CLASS_NAMES}}
     class_to_id = {name: idx for idx, name in enumerate(CLASS_NAMES)}
-    unmapped: set[str] = set()  # track unknown labels
+    unmapped: set[str] = set()
 
     for idx, row in enumerate(dataset):
         image = row["image"].convert("RGB")
@@ -81,27 +125,24 @@ def export_split(dataset: Any, split: str, out_dir: Path, label_names: list[str]
         objects = row.get("objects") or {}
         bboxes = objects.get("bbox") or []
         categories = objects.get("category") or []
-
-        # DEBUG: print raw structure of first row only
-        if idx == 0:
-            print(f"[{split}] row[0] objects keys: {list(objects.keys())}")
-            print(f"[{split}] row[0] categories (first 10): {list(categories)[:10]}")
-            print(f"[{split}] row[0] category types: {[type(c).__name__ for c in list(categories)[:5]]}")
-
         lines: list[str] = []
 
         for bbox, category in zip(bboxes, categories):
             if isinstance(category, int):
-                if not label_names or category < 0 or category >= len(label_names):
+                # Prefer schema-derived names; fall back to hardcoded map.
+                if label_names and 0 <= category < len(label_names):
+                    label = label_names[category]
+                elif category in DATASET_INT_TO_LABEL:
+                    label = DATASET_INT_TO_LABEL[category]
+                else:
                     unmapped.add(f"<int:{category}>")
                     continue
-                label = label_names[category]
             else:
                 label = str(category)
 
             target_label = canonical_label(label)
             if not target_label or target_label not in class_to_id:
-                unmapped.add(label)  # collect for diagnosis
+                unmapped.add(label)
                 continue
 
             xc, yc, bw, bh = yolo_bbox([float(value) for value in bbox], width, height)
@@ -122,9 +163,10 @@ def export_split(dataset: Any, split: str, out_dir: Path, label_names: list[str]
         stats["boxes"] += len(lines)
 
     if unmapped:
-        print(f"[{split}] UNMAPPED labels (add to LABEL_MAP): {sorted(unmapped)}")
+        print(f"[{split}] intentionally unmapped labels (junk/irrelevant): {sorted(unmapped)}")
 
     return stats
+
 
 def main() -> None:
     try:
@@ -139,10 +181,13 @@ def main() -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     dataset = load_dataset(dataset_name)
-    label_names = category_names(next(iter(dataset.values())).features)
+    first_split = next(iter(dataset.values()))
+    label_names = category_names(first_split.features)
 
-    # Sanity-check: surface raw names so LABEL_MAP gaps are visible early
-    print(f"Raw category names from dataset ({len(label_names)}): {label_names}")
+    if label_names:
+        print(f"Schema-derived category names ({len(label_names)}): {label_names}")
+    else:
+        print(f"No ClassLabel schema found — using hardcoded DATASET_INT_TO_LABEL ({len(DATASET_INT_TO_LABEL)} entries)")
 
     manifest: dict[str, Any] = {
         "dataset": dataset_name,
@@ -154,14 +199,15 @@ def main() -> None:
         if source_split not in dataset:
             continue
         manifest["splits"][target_split] = export_split(dataset[source_split], target_split, out_dir, label_names)
+        s = manifest["splits"][target_split]
+        print(f"[{target_split}] exported {s['images']} images, {s['boxes']} boxes, {s['skipped']} skipped")
+        print(f"[{target_split}] class counts: {s['class_counts']}")
 
-    # FIX: fail loudly if training split exported nothing — before YOLO wastes time
     train_images = out_dir / "train" / "images"
     exported = list(train_images.iterdir()) if train_images.exists() else []
     if not exported:
         raise RuntimeError(
             f"No training images exported to {train_images}.\n"
-            f"Check LABEL_MAP covers all raw category names above.\n"
             f"train split stats: {manifest['splits'].get('train')}"
         )
 
