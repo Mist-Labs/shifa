@@ -9,50 +9,48 @@
 
 ---
 
+## The Problem
+
+Community health workers in crisis settings make life-or-death decisions with almost nothing. No doctor nearby. No reliable power. Internet that drops in and out, if it exists at all.
+
+The wrong call — keeping a child home who needed urgent referral, or sending someone on a dangerous journey they didn't need — has real consequences. SHIFA exists to give that CHW one more reliable tool.
+
+---
+
 ## What It Does
 
 ### Clinical Triage
 
-A community health worker faces a sick child. No doctor. Unreliable internet. No electricity.
+The CHW speaks or types symptoms. SHIFA listens — in Arabic, Somali, French, Lingala, Kinyarwanda, or Hausa — runs a fine-tuned Gemma 4 model on the device, and gives a clear answer: treat at home, refer routinely, or refer urgently right now. The voice response comes back in the CHW's own language.
 
-SHIFA listens to or records the symptoms — in Arabic, Somali, French, Lingala, Kinyarwanda, or Hausa — runs a fine-tuned Gemma 4 model on-device when the model is downloaded, and tells the CHW exactly what to do: treat at home, refer routinely, or refer urgently right now.
-
-### Offline-Capable Field Workflow
-
-When the E2B model is downloaded and active, inference runs fully offline. The first-run setup also downloads a Whisper base speech-to-text model so recorded consultations can be converted into text for offline LiteRT analysis. When local models are skipped or unavailable, the app falls back to Gemini API cloud mode. Case data syncs to a coordinator dashboard when connectivity is available.
+When the models are downloaded, this runs with no internet at all. When they're not, it falls back to Gemini API. Case data syncs to a coordinator dashboard whenever connectivity returns.
 
 ### SHIFA Guard
 
-SHIFA Guard is a field safety alert layer for CHWs. When enabled, the CHW captures photo or video evidence, Guard analyzes it for credible threats such as armed individuals, visible firearms, gunfire indicators, explosions, armed convoys, checkpoints, or immediate field danger. If a threat is confirmed, SHIFA attaches GPS coordinates and CHW identity, sends or queues SMS alerts to saved coordinator numbers, logs the event locally, and attempts a Bluetooth mesh relay to nearby SHIFA devices. Relay recipients can log the alert, attempt SMS dispatch if they have connectivity, and rebroadcast within the configured hop limit.
+If a CHW encounters a threat in the field, Guard lets them capture photo or video evidence. The app analyzes it for armed individuals, visible weapons, armed convoys, or checkpoint situations. If a threat is confirmed, it attaches GPS coordinates, queues an SMS alert to saved coordinator numbers via Africa's Talking, logs the event locally, and attempts a Bluetooth mesh relay to other nearby SHIFA devices — so the alert can still propagate even without a cell signal.
 
 ### Outbreak Monitoring
 
-Synced clinical records feed a coordinator dashboard for disease surveillance. Spatial DBSCAN clustering helps detect possible outbreak hotspots from reported cases, supporting early warning for cholera, meningitis, measles, and other crisis-sensitive conditions.
+Every case logged in the field feeds a coordinator dashboard. Spatial DBSCAN clustering runs over the case records to flag potential hotspots — early warning for cholera, meningitis, measles, and other conditions that move fast in displacement settings.
 
 ---
 
 ## Try It
 
-### Install the Android Preview Build
+**[Install the Android preview build](https://expo.dev/accounts/evans0075/projects/shifa-health/builds/46836d0b-02e2-4b83-9313-c7b256d465d4)**
 
-Download and install the latest Android preview build:
-
-https://expo.dev/accounts/evans0075/projects/shifa-health/builds/355224bc-812a-4e61-a54d-cfae776387b4
-
-The app downloads the offline E2B model and Whisper base voice-input model on first setup. If you skip the model download, SHIFA can use cloud fallback when connectivity is available.
-
-### Run Locally
+On first setup, the app downloads the offline E2B clinical model and the Whisper base voice-input model. Skip those and it runs in cloud fallback mode.
 
 ```bash
 git clone https://github.com/Mist-Labs/shifa.git
 
-# Validate the clinical model
+# Run the clinical validation suite
 cd shifa/ml
 pip install unsloth boto3
 python scripts/download_artifacts.py
 python finetune/validate.py
 
-# Run the mobile app from source
+# Run the mobile app
 cd ../shifa-mobile
 npm install
 npx expo run:android
@@ -62,42 +60,40 @@ Or watch the **[demo video](#)** — 3 minutes.
 
 ---
 
-## Results
+## Validation Results
 
-Validated on a 60-case WHO IMCI test set. Both E2B (mobile) and E4B (server) models pass all clinical targets.
+Tested on a 60-case WHO IMCI set. Both the mobile E2B and server E4B models clear every clinical target.
 
 | Metric | E2B Mobile | E4B Server | Target |
 |--------|:----------:|:----------:|:------:|
 | Decision accuracy | **95.0%** | **96.7%** | 88% ✅ |
 | **Urgent recall** | **100.0%** | **100.0%** | 95% ✅ |
-| Urgent miss rate | **0.0%** | **0.0%** | 0% ✅ |
+| Urgent miss rate | **0.0%** | **0.0%** | — ✅ |
 | Danger sign detection | **95.0%** | 88.3% | 92% ✅ |
 | Drug dose accuracy | **100.0%** | **100.0%** | 95% ✅ |
 | Protocol adherence | **93.3%** | **100.0%** | 90% ✅ |
 
-The model never misses an emergency. That is the only metric that matters in the field.
+The model never misses an emergency. That's the only number that matters.
 
 ---
 
 ## How It Works
 
 ```
-CHW records symptoms (voice, text, photo or short video)
+CHW speaks or types symptoms
         ↓
-Offline STT converts voice to editable symptom text when available
+Whisper base STT transcribes offline
         ↓
-Fine-tuned Gemma 4 E2B reasons over the case
+Fine-tuned Gemma 4 E2B (LiteRT) reasons over the case
         ↓
 Deterministic WHO/IMCI guardrails apply
         ↓
-Decision + voice explanation in CHW's language
+Decision + voice response in CHW's language
         ↓
-Case logged locally → syncs to dashboard when online
+Case logged locally → syncs to dashboard when back online
 ```
 
-**Two-layer safety architecture:**
-- Gemma 4 handles clinical reasoning and structured JSON output
-- Deterministic guardrails enforce protocol for MUAC < 11.5cm, bilateral edema, neonatal danger signs, convulsions, sexual violence, meningitis signs, maternal danger signs, and altered consciousness
+Two layers of safety — the model handles reasoning and produces structured clinical JSON, the guardrails enforce hard protocol rules on top of that. Things like MUAC < 11.5cm, bilateral edema, neonatal danger signs, convulsions, sexual violence, meningitis signs, maternal danger signs, and altered consciousness always trigger urgent referral regardless of what the model output says.
 
 ---
 
@@ -107,12 +103,16 @@ Case logged locally → syncs to dashboard when online
 |--|-----|-----|
 | Base | `google/gemma-4-e2b-it` | `google/gemma-4-e4b-it` |
 | Fine-tuning | QLoRA via Unsloth | QLoRA via Unsloth |
-| Training time | 56 minutes on Kaggle T4 | 103 minutes on Kaggle T4 |
+| Training time | 56 min on Kaggle T4 | 103 min on Kaggle T4 |
 | Train loss | 0.1759 | 0.0599 |
-| Mobile runtime | LiteRT-LM `.litertlm` · **3.1 GB** packaged primary; GGUF Q4_K_M · 3.2 GB fallback; Whisper base STT · ~142 MB | GGUF Q4_K_M · 5.0 GB |
-| Target device | Mid-range Android (6GB+ RAM) | High-end / server |
+| Mobile runtime | LiteRT-LM `.litertlm` · 3.1 GB + Whisper base · 142 MB | GGUF Q4_K_M · 5.0 GB |
+| Target | Mid-range Android (6GB+ RAM) | High-end device / server |
 
-Training data: 2,000 synthetic WHO/IMCI cases across 6 languages, 5 crisis countries, 11 clinical conditions. Data cleaning removed invalid decision aliases (`MONITOR`, `OBSERVE`, `REFER_NON_URGENT`) before the final run.
+2,000 synthetic training cases across 6 languages, 5 countries, 11 clinical conditions. Before the final run, we cleaned out invalid decision aliases (`MONITOR`, `OBSERVE`, `REFER_NON_URGENT`) that had crept into the synthetic data — that single cleanup pushed E2B raw model accuracy from 73% to 83%.
+
+The LiteRT export ran on a Vast.ai A100 SXM4, after two OOM failures on Kaggle T4. The full story is in [SHIFA_Technical_Challenges.md](./SHIFA_Technical_Challenges.md).
+
+For the full training flow, validation procedure, and artifact evidence, see [ml/TRAINING_AND_VALIDATION_PROCESS.md](./ml/TRAINING_AND_VALIDATION_PROCESS.md) and [ml/TRAINING_AND_VALIDATION_RESULTS.md](./ml/TRAINING_AND_VALIDATION_RESULTS.md).
 
 ---
 
@@ -122,36 +122,32 @@ Acute watery diarrhea / cholera · Severe and moderate acute malnutrition · Neo
 
 ---
 
+## Field Notes
+
+Physical Android testing confirmed first-run model download, offline E2B analysis, Kinyarwanda output, TTS playback, local case logging, and sync to the backend when connectivity returned. LiteRT-LM `.litertlm` is now the primary mobile runtime. GGUF stays as a documented fallback.
+
+Offline STT — Whisper base — is part of the first-run setup. Voice recordings try offline transcription first. If that fails and there's no typed input, the app blocks silent analysis and asks the CHW to type or reconnect. No guessing.
+
+---
+
 ## Setup
 
 ```bash
-# Backend / training
+# Training pipeline
 cd shifa/ml
 pip install -r requirements-gpu.txt
-python scripts/download_artifacts.py   # pulls model + data from R2
-python finetune/finetune_unsloth.py    # retrain
-python finetune/validate.py            # validate
+python scripts/download_artifacts.py
+python finetune/finetune_unsloth.py
+python finetune/validate.py
 
 # Mobile
 cd shifa/shifa-mobile
 npm install
-npx expo run:android
-
-# iOS simulator smoke test
-npx expo run:ios
+npx expo run:android   # Android
+npx expo run:ios       # iOS simulator smoke test
 ```
 
-On first launch the app prompts the user to download the E2B LiteRT-LM model (~3.1 GB packaged) plus the Whisper base offline speech-to-text model (~142 MB). Offline inference and offline voice input activate after download. Falls back to Gemini API cloud mode if skipped.
-
-For iOS device or TestFlight builds, see `shifa-mobile/IOS_RUNBOOK.md`. The iOS app uses the same first-run model download flow; the model is not bundled inside the IPA.
-
----
-
-## Current Field Notes
-
-Physical Android testing confirmed first-run model download, offline E2B GGUF fallback analysis, local-language Kinyarwanda output, speech playback, local case logging, and sync to the deployed backend when connectivity returned.
-
-After that field test, E2B LiteRT-LM export succeeded on a Vast.ai A100 SXM4 instance and the `.litertlm` artifact was uploaded to R2 as the preferred mobile runtime. Physical-device LiteRT benchmarking is the next validation step. GGUF remains as a documented fallback path.
+For iOS device builds and TestFlight, see [shifa-mobile/IOS_RUNBOOK.md](./shifa-mobile/IOS_RUNBOOK.md). The model is not bundled in the IPA — same first-run download flow as Android.
 
 ---
 
@@ -162,14 +158,16 @@ shifa/
 ├── ml/
 │   ├── finetune/
 │   │   ├── finetune_unsloth.py        # Training
-│   │   ├── validate.py                # 60-case validation suite
+│   │   ├── validate.py                # Validation suite
 │   │   ├── guardrails.py              # WHO/IMCI safety overrides
 │   │   └── common.py
-│   ├── data/                          # Training + test cases
-│   └── reports/                       # Validation metrics + manifests
-├── shifa-mobile/                      # React Native + Kotlin
-│   └── IOS_RUNBOOK.md                 # iOS build and validation path
-├── SHIFA_Technical_Challenges.md      # Engineering challenges log
+│   ├── data/
+│   ├── reports/
+│   ├── TRAINING_AND_VALIDATION_PROCESS.md
+│   └── TRAINING_AND_VALIDATION_RESULTS.md
+├── shifa-mobile/
+│   └── IOS_RUNBOOK.md
+├── SHIFA_Technical_Challenges.md
 └── README.md
 ```
 
@@ -177,7 +175,7 @@ shifa/
 
 ## Built by
 
-— Mist Labs · Kigali, Rwanda
+**Okoli Arinze Evans** — Mist Labs · Kigali, Rwanda
 [github.com/OkoliEvans](https://github.com/OkoliEvans)
 
-Made for health workers operating in the hardest places on earth.
+Made for health workers in the hardest places on earth.

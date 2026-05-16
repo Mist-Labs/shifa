@@ -222,6 +222,7 @@ Final protocol adherence after fuzzy matching: **100%**.
 Include this document in the hackathon submission artifacts alongside:
 
 - `ml/TRAINING_AND_VALIDATION_PROCESS.md`
+- `ml/TRAINING_AND_VALIDATION_RESULTS.md`
 - `ml/reports/training_manifest.json`
 - `ml/reports/validation_metrics.json`
 - `ml/reports/upload_manifest.json`

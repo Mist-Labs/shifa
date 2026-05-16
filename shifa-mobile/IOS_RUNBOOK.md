@@ -10,10 +10,11 @@ This app now has a generated native iOS project without changing the existing An
 - Native iOS privacy strings are configured for microphone, camera, location, photo library, and Bluetooth.
 - EAS profiles include iOS simulator, internal preview, and production targets.
 - The React Native clinical engine is shared with Android:
-  - LiteRT bridge path remains available when a fine-tuned LiteRT artifact exists.
-  - GGUF local inference uses `llama.rn` when the runtime supports the device.
+  - Fine-tuned E2B LiteRT-LM is the primary offline model path.
+  - GGUF local inference uses `llama.rn` as the fallback local runtime when the runtime supports the device.
   - Gemini and deterministic protocol fallback remain the final safety fallbacks.
-- The offline model is downloaded after user approval. Do not bundle the 3.2 GB GGUF inside the IPA.
+- The offline model pack is downloaded after user approval. Do not bundle the multi-GB model inside the IPA.
+- First-run setup downloads the E2B `.litertlm` artifact from R2 plus the Whisper base STT model for offline voice input.
 
 ## Prerequisites
 
@@ -101,9 +102,10 @@ After the build succeeds, submit through EAS or upload from Apple Transporter.
 ## Physical Device Validation Checklist
 
 - First launch asks for offline model setup.
-- Offline model download shows progress and survives app foreground/background transitions.
+- Offline model download shows progress for the LiteRT model and Whisper base STT pack.
 - App has enough free storage before model download.
-- Airplane-mode clinical analysis works after the GGUF model is downloaded.
+- Airplane-mode clinical analysis works after the LiteRT model is downloaded.
+- Recorded patient speech is converted to symptom text with the offline Whisper base model before local analysis.
 - Cloud fallback works when online and no local model is present.
 - TTS speaks the result in the selected CHW language and stops cleanly.
 - Camera, video, file upload, microphone, and location permissions show clear iOS prompts.
@@ -113,8 +115,9 @@ After the build succeeds, submit through EAS or upload from Apple Transporter.
 
 ## Known iOS Risks
 
-- The E2B GGUF runtime is approximately 3.2 GB. iOS testing must confirm download reliability, storage pressure, memory pressure, heat, and inference latency.
-- `llama.rn` iOS behavior must be verified on physical hardware. Simulator success is not enough.
+- The E2B LiteRT-LM packaged artifact is approximately 3.1 GB, plus the Whisper base STT model at approximately 142 MB. iOS testing must confirm download reliability, storage pressure, memory pressure, heat, and inference latency.
+- LiteRT iOS behavior must be verified on physical hardware. Simulator success is not enough.
+- GGUF remains a fallback path, but should not be the primary iOS benchmark now that the fine-tuned LiteRT artifact exists.
 - Local iOS compile requires Xcode's iOS platform/runtime. If `xcodebuild` reports `iOS 26.1 is not installed`, install the platform from Xcode > Settings > Components, then rerun `npx expo run:ios`.
 - iOS production sync requires HTTPS. Plain `http://10.0.2.2:3000` is emulator-only and should not be used in distributed builds.
 - The app is clinical decision support, not a certified medical device. Keep submission wording aligned with the README and technical challenge notes.

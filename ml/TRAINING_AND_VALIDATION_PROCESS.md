@@ -316,15 +316,15 @@ Do not use:
 
 ---
 
-## 8. Next Steps
+## 8. Current Completion State
 
-1. **Write submission evidence** — include the guarded metrics, raw metrics, and guardrail explanation.
-2. **Preserve artifacts** — keep `training_manifest.json`, `validation_metrics.json`, and `upload_manifest.json` as the R2-backed evidence trail.
-3. **Improve danger-sign canonicalization** — normalize danger labels and update prompts so `danger_signs` uses expected WHO/IMCI terms.
-4. **Audit synthetic-label mismatches** — fix cases where uncomplicated malnutrition labels conflict with bilateral edema or other referral signs.
-5. **Convert/package for LiteRT** — complete the mobile runtime artifact path.
-6. **Android integration** — load the local model and guardrails in the custom APK, then validate in airplane mode on a physical device.
-7. **Offline voice pipeline** — Whisper STT + Coqui TTS for 6-language voice interface.
+1. **Submission evidence** — guarded metrics, raw metrics, and guardrail explanations are captured in the reports and results documentation.
+2. **Artifact preservation** — `training_manifest.json`, validation metrics, runtime manifests, upload manifests, adapters, GGUF files, and the LiteRT-LM runtime are stored in R2 as the evidence trail.
+3. **Danger-sign canonicalization** — validation now uses clinical synonym and fuzzy matching so multilingual labels are scored against WHO/IMCI concepts instead of brittle exact strings.
+4. **Synthetic-label mismatches** — known moderate malnutrition / SAM conflicts were handled in validation guardrail logic and documented for future dataset cleanup.
+5. **LiteRT packaging** — fine-tuned E2B LiteRT-LM export succeeded on Vast.ai A100/high-RAM infrastructure and was uploaded to R2 as the primary mobile runtime artifact.
+6. **Android integration** — the custom app downloads the LiteRT-LM model on first launch, keeps GGUF as fallback, and applies the same deterministic WHO/IMCI guardrails before returning decisions.
+7. **Offline voice pipeline** — Whisper base STT is part of the first-run offline setup and converts recorded patient speech into editable symptom text before local clinical inference. TTS speaks the result in the selected CHW language.
 
 ---
 
@@ -335,15 +335,15 @@ The first SHIFA E4B fine-tune proves clinical reasoning and offline-capable arch
 | Device class | Can run SHIFA locally? | Notes |
 |--------------|------------------------|-------|
 | T4 GPU, 15GB VRAM | Yes | Approximately 7-10s per inference during validation/inference experiments |
-| High-end Android, Snapdragon 8 Gen 3 / 12GB RAM | Yes | Via LiteRT, expected approximately 3-8s depending on quantization and thermal limits |
-| Mid-range Android, 4-6GB RAM | Partial | Prefer E2B or smaller router model; expected approximately 5-15s |
-| Low-end Android, 3-4GB RAM / $50 class | No for E4B | E4B quantized artifact is expected around 2.2GB and is not practical alongside OS/app memory pressure |
+| High-end Android, Snapdragon 8 Gen 3 / 12GB RAM | Yes | Prefer E2B LiteRT-LM; physical-device benchmark still required |
+| Mid-range Android, 4-6GB RAM | Expected for E2B LiteRT-LM, pending full benchmark | E2B LiteRT-LM is the primary target; GGUF fallback was functional but slow in physical testing |
+| Low-end Android, 3-4GB RAM / $50 class | Not yet validated | The 3.1GB LiteRT-LM artifact plus OS/app memory pressure requires careful testing before making claims |
 
 For hackathon and field deployment language, the accurate claim is:
 
 > SHIFA is designed for offline inference on mid-range and high-end Android devices, with an optimization roadmap for lower-cost phones.
 
-Avoid claiming reliable E4B inference on `$50` Android devices until a smaller model is validated.
+Avoid claiming reliable inference on `$50` Android devices until a smaller model or streaming runtime is validated.
 
 ### Deployment Strategy
 
