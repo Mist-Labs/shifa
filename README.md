@@ -3,7 +3,7 @@
 > Built for community health workers in Sudan, DRC, Somalia, Nigeria, and Rwanda —
 > because a wrong triage call in a displacement camp costs a child's life.
 
-**شفاء** (*shifa*) means *healing* in Arabic.
+**SHIFA** comes from the Arabic word **شفاء** (*shifa*), meaning *healing*.
 
 **Offline-capable clinical decision support for crisis settings, with 100% urgent recall in validation and deterministic WHO/IMCI safety guardrails.**
 
