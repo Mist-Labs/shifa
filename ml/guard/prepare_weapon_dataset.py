@@ -72,6 +72,7 @@ def export_split(dataset: Any, split: str, out_dir: Path, label_names: list[str]
 
     stats: dict[str, Any] = {"images": 0, "boxes": 0, "skipped": 0, "class_counts": {name: 0 for name in CLASS_NAMES}}
     class_to_id = {name: idx for idx, name in enumerate(CLASS_NAMES)}
+    unmapped: set[str] = set()  # track unknown labels
 
     for idx, row in enumerate(dataset):
         image = row["image"].convert("RGB")
@@ -80,13 +81,19 @@ def export_split(dataset: Any, split: str, out_dir: Path, label_names: list[str]
         objects = row.get("objects") or {}
         bboxes = objects.get("bbox") or []
         categories = objects.get("category") or []
+
+        # DEBUG: print raw structure of first row only
+        if idx == 0:
+            print(f"[{split}] row[0] objects keys: {list(objects.keys())}")
+            print(f"[{split}] row[0] categories (first 10): {list(categories)[:10]}")
+            print(f"[{split}] row[0] category types: {[type(c).__name__ for c in list(categories)[:5]]}")
+
         lines: list[str] = []
 
         for bbox, category in zip(bboxes, categories):
-            # FIX: resolve integer index → string label via label_names
             if isinstance(category, int):
-                if category < 0 or category >= len(label_names):
-                    stats["skipped"] += 1
+                if not label_names or category < 0 or category >= len(label_names):
+                    unmapped.add(f"<int:{category}>")
                     continue
                 label = label_names[category]
             else:
@@ -94,7 +101,9 @@ def export_split(dataset: Any, split: str, out_dir: Path, label_names: list[str]
 
             target_label = canonical_label(label)
             if not target_label or target_label not in class_to_id:
+                unmapped.add(label)  # collect for diagnosis
                 continue
+
             xc, yc, bw, bh = yolo_bbox([float(value) for value in bbox], width, height)
             if bw <= 0 or bh <= 0:
                 continue
@@ -112,8 +121,10 @@ def export_split(dataset: Any, split: str, out_dir: Path, label_names: list[str]
         stats["images"] += 1
         stats["boxes"] += len(lines)
 
-    return stats
+    if unmapped:
+        print(f"[{split}] UNMAPPED labels (add to LABEL_MAP): {sorted(unmapped)}")
 
+    return stats
 
 def main() -> None:
     try:
