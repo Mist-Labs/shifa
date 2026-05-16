@@ -32,12 +32,15 @@ If a CHW encounters a threat in the field, Guard lets them capture photo or vide
 ### Outbreak Monitoring
 
 Every case logged in the field feeds a coordinator dashboard. Spatial DBSCAN clustering runs over the case records to flag potential hotspots — early warning for cholera, meningitis, measles, and other conditions that move fast in displacement settings.
+On the dashboard map, country boundaries are lightly outlined and regions with active outbreak alerts are highlighted in red for fast coordinator triage.
 
 ---
 
 ## Try It
 
 **[Install the Android preview build](https://expo.dev/accounts/evans0075/projects/shifa-health/builds/f6331fc5-6c11-49ee-8ba3-6dea8bc0292b)**
+
+**[Open the live coordinator dashboard](https://shifa-dashboard-theta.vercel.app/)**
 
 On first setup, the app downloads the offline E2B clinical model and the Whisper base voice-input model. Skip those and it runs in cloud fallback mode.
 

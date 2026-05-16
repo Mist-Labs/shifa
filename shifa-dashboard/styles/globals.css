@@ -251,9 +251,64 @@ h2 {
   min-height: 460px;
 }
 
+.operations-map-shell,
 .operations-map,
 .coordinate-panel {
   height: 400px;
+}
+
+.operations-map-shell {
+  position: relative;
+}
+
+.operations-map {
+  overflow: hidden;
+}
+
+.map-legend {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
+  background: rgba(4, 20, 15, 0.8);
+  backdrop-filter: blur(8px);
+  color: #e7f5ee;
+  font-size: 12px;
+}
+
+.map-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.map-legend i {
+  display: block;
+  width: 14px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.legend-boundary {
+  background: rgba(148, 163, 184, 0.36);
+  border: 1px solid #cbd5e1;
+}
+
+.legend-selected {
+  background: rgba(34, 197, 94, 0.4);
+  border: 1px solid #bbf7d0;
+}
+
+.legend-outbreak {
+  background: rgba(220, 38, 38, 0.5);
+  border: 1px solid #fecaca;
 }
 
 .coordinate-panel {

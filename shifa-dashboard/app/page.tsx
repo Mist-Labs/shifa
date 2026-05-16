@@ -131,7 +131,7 @@ export default function DashboardPage() {
               <h2><MapPinned size={18} /> Case and threat map</h2>
             </div>
           </div>
-          <OperationsMap data={filtered} token={process.env.NEXT_PUBLIC_MAPBOX_TOKEN} />
+          <OperationsMap data={filtered} selectedCountry={selectedCountry} token={process.env.NEXT_PUBLIC_MAPBOX_TOKEN} />
         </div>
 
         <div className="panel">
