@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { ActivityIndicator, Alert, Animated, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import NetInfo from '@react-native-community/netinfo';
 import {
@@ -40,7 +40,7 @@ const Tab = createBottomTabNavigator();
 type OnboardingStep = 'splash' | 'modelSetup' | 'modelReady' | 'country' | 'language' | 'done';
 const SPLASH_DURATION_MS = 2000;
 const DOWNLOAD_BUFFER_BYTES = 1024 * 1024 * 1024;
-const DEFAULT_OFFLINE_MODEL_BYTES = 3419596601;
+const DEFAULT_OFFLINE_MODEL_BYTES = Platform.OS === 'ios' ? 3575839705 : 3419596601;
 const SETUP_MESSAGES = [
   'Preparing WHO IMCI clinical protocols...',
   'Loading danger sign detection...',

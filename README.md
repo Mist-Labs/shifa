@@ -116,6 +116,20 @@ For the full training flow, validation procedure, and artifact evidence, see [ml
 
 ---
 
+## Model Artifacts
+
+Published weights and mobile runtime artifacts are hosted on Cloudflare R2:
+
+| Artifact | Link |
+| --- | --- |
+| E2B LiteRT-LM primary mobile runtime | [shifa-gemma4-e2b-finetuned.litertlm](https://pub-b2b135c13b0a406c8a4dc9c60eadb248.r2.dev/models/shifa-gemma4-e2b-finetuned/shifa-gemma4-e2b-finetuned.litertlm) |
+| E2B LoRA adapter weights | [adapter_model.safetensors](https://pub-b2b135c13b0a406c8a4dc9c60eadb248.r2.dev/models/shifa-gemma4-e2b-finetuned/adapter_model.safetensors) |
+| E2B GGUF fallback runtime | [shifa-gemma4-e2b-q4km.gguf](https://pub-b2b135c13b0a406c8a4dc9c60eadb248.r2.dev/models/shifa-gemma4-e2b-finetuned/shifa-gemma4-e2b-q4km.gguf) |
+| E2B validation metrics | [validation_metrics.json](https://pub-b2b135c13b0a406c8a4dc9c60eadb248.r2.dev/validation_metrics.json) |
+| E2B training manifest | [training_manifest.json](https://pub-b2b135c13b0a406c8a4dc9c60eadb248.r2.dev/training_manifest.json) |
+
+---
+
 ## Clinical Coverage
 
 Acute watery diarrhea / cholera · Severe and moderate acute malnutrition · Neonatal danger signs · Severe and non-severe pneumonia · Malaria · Meningitis · Infected conflict wounds · Sexual violence (GBV) · Maternal danger signs · Suspected measles

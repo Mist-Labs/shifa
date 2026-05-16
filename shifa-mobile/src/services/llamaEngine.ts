@@ -1,4 +1,5 @@
 import { initLlama, LlamaContext } from 'llama.rn';
+import { Platform } from 'react-native';
 import { ClinicalDecision } from './caseLog';
 import { extractJsonObject, normalizeCloudClinicalDecision } from './clinicalContract';
 import { getGGUFModelPath } from './modelManager';
@@ -20,8 +21,8 @@ const STOP_WORDS = [
   '<|endoftext|>',
 ];
 const LOCAL_CONTEXT_TOKENS = 2048;
-const LOCAL_BATCH_TOKENS = 128;
-const LOCAL_THREAD_COUNT = 4;
+const LOCAL_BATCH_TOKENS = Platform.OS === 'ios' ? 256 : 128;
+const LOCAL_THREAD_COUNT = Platform.OS === 'ios' ? 6 : 4;
 const LOCAL_MAX_OUTPUT_TOKENS = 512;
 
 export interface LlamaRuntimeInfo {
@@ -89,9 +90,10 @@ async function getOrCreateContext(modelPath: string): Promise<LlamaContext> {
     n_batch: LOCAL_BATCH_TOKENS,
     n_threads: LOCAL_THREAD_COUNT,
     n_gpu_layers: 99,
+    flash_attn_type: Platform.OS === 'ios' ? 'auto' : undefined,
     use_mlock: false,
     use_mmap: true,
-    no_extra_bufts: true,
+    no_extra_bufts: Platform.OS !== 'ios',
   });
   loadedModelPath = modelPath;
   return context;

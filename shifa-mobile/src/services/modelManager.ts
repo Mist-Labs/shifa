@@ -1,4 +1,5 @@
 import * as FileSystem from 'expo-file-system/legacy';
+import { Platform } from 'react-native';
 import { envValue } from './runtimeEnv';
 
 const DEFAULT_MODEL_BASE_URL = 'https://pub-b2b135c13b0a406c8a4dc9c60eadb248.r2.dev';
@@ -7,15 +8,17 @@ const MODEL_DIR = `${FileSystem.documentDirectory ?? ''}models/shifa-gemma4-e2b-
 const MODEL_SETUP_MARKER = `${MODEL_DIR}.setup-dismissed`;
 
 type RuntimeKind = 'litert' | 'gguf' | 'stt';
+const SUPPORTED_RUNTIME_KINDS: RuntimeKind[] = Platform.OS === 'ios' ? ['gguf'] : ['litert', 'gguf'];
+const DEFAULT_RUNTIME_KIND: RuntimeKind = Platform.OS === 'ios' ? 'gguf' : 'litert';
 
 const MODEL_ARTIFACTS = [
   {
     key: 'models/shifa-gemma4-e2b-finetuned/shifa-gemma4-e2b-finetuned.litertlm',
     filename: 'shifa-gemma4-e2b-finetuned.litertlm',
-    required: true,
+    required: DEFAULT_RUNTIME_KIND === 'litert',
     runtime: true,
     runtimeKind: 'litert' as RuntimeKind,
-    downloadByDefault: true,
+    downloadByDefault: DEFAULT_RUNTIME_KIND === 'litert',
     estimatedBytes: 3271645136,
   },
   {
@@ -31,10 +34,10 @@ const MODEL_ARTIFACTS = [
   {
     key: 'models/shifa-gemma4-e2b-finetuned/shifa-gemma4-e2b-q4km.gguf',
     filename: 'shifa-gemma4-e2b-q4km.gguf',
-    required: false,
+    required: DEFAULT_RUNTIME_KIND === 'gguf',
     runtime: true,
     runtimeKind: 'gguf' as RuntimeKind,
-    downloadByDefault: false,
+    downloadByDefault: DEFAULT_RUNTIME_KIND === 'gguf',
     estimatedBytes: 3427878240,
   },
   {
@@ -94,9 +97,9 @@ export async function getClinicalModelStatus(): Promise<ModelArtifactStatus> {
     })
   );
   const required = statuses.filter((item) => item.artifact.required);
-  const runtime = statuses.find((item) => item.artifact.runtime && item.exists);
-  const liteRTRuntime = statuses.find((item) => item.artifact.runtimeKind === 'litert' && item.exists);
-  const ggufRuntime = statuses.find((item) => item.artifact.runtimeKind === 'gguf' && item.exists);
+  const runtime = statuses.find((item) => item.artifact.runtime && SUPPORTED_RUNTIME_KINDS.includes(item.artifact.runtimeKind) && item.exists);
+  const liteRTRuntime = statuses.find((item) => item.artifact.runtimeKind === 'litert' && SUPPORTED_RUNTIME_KINDS.includes(item.artifact.runtimeKind) && item.exists);
+  const ggufRuntime = statuses.find((item) => item.artifact.runtimeKind === 'gguf' && SUPPORTED_RUNTIME_KINDS.includes(item.artifact.runtimeKind) && item.exists);
   const sttRuntime = statuses.find((item) => item.artifact.runtimeKind === 'stt' && item.exists);
   const setupDismissedInfo = await FileSystem.getInfoAsync(MODEL_SETUP_MARKER);
   const defaultDownloads = statuses.filter((item) => item.artifact.downloadByDefault !== false);
@@ -163,6 +166,7 @@ export async function downloadClinicalModelArtifacts(
 ): Promise<ModelArtifactStatus> {
   if (!MODEL_BASE_URL) throw new Error('EXPO_PUBLIC_SHIFA_MODEL_BASE_URL is not configured.');
   await FileSystem.makeDirectoryAsync(MODEL_DIR, { intermediates: true });
+  await cleanupUnsupportedRuntimeArtifacts();
 
   const artifacts = MODEL_ARTIFACTS.filter((artifact) => artifact.downloadByDefault !== false);
   for (let index = 0; index < artifacts.length; index += 1) {
@@ -195,4 +199,15 @@ export async function downloadClinicalModelArtifacts(
   }
 
   return getClinicalModelStatus();
+}
+
+async function cleanupUnsupportedRuntimeArtifacts(): Promise<void> {
+  const unsupportedRuntimeArtifacts = MODEL_ARTIFACTS.filter(
+    (artifact) => artifact.runtime && !SUPPORTED_RUNTIME_KINDS.includes(artifact.runtimeKind)
+  );
+  await Promise.all(
+    unsupportedRuntimeArtifacts.map(async (artifact) => {
+      await FileSystem.deleteAsync(`${MODEL_DIR}${artifact.filename}`, { idempotent: true }).catch(() => undefined);
+    })
+  );
 }

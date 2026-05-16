@@ -61,6 +61,12 @@
       "expo-audio",
       "expo-asset",
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "SHIFA lets you choose existing clinical photos and videos as patient evidence for AI analysis."
+        }
+      ],
+      [
         "llama.rn",
         {
           "enableOpenCLAndHexagon": true

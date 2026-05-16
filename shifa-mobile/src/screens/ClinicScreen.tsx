@@ -18,6 +18,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useNetInfo } from '@react-native-community/netinfo';
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
 import * as Speech from 'expo-speech';
 import {
   RecordingPresets,
@@ -28,7 +29,7 @@ import {
   useAudioRecorder,
   useAudioRecorderState,
 } from 'expo-audio';
-import { AlertTriangle, Camera, CheckCircle, Cloud, CloudOff, FileUp, FileText, Mic, Square, Video, Volume2, X } from 'lucide-react-native';
+import { AlertTriangle, Camera, CheckCircle, Cloud, CloudOff, FileUp, FileText, ImagePlus, Mic, Square, Video, Volume2, X } from 'lucide-react-native';
 import { ClinicalDecision, logConsultation } from '../services/caseLog';
 import { getActiveCHWProfile } from '../services/chwProfile';
 import { colors, decisionColor, decisionSoftColor, fieldShadow, highContrastShadow } from '../design/system';
@@ -350,6 +351,41 @@ export default function ClinicScreen() {
     }
   };
 
+  const pickClinicalGalleryMedia = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Photo library permission required', 'Photo library access is required to attach existing clinical images or videos for AI analysis.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images', 'videos'],
+      allowsMultipleSelection: false,
+      quality: 0.82,
+      videoMaxDuration: 8,
+      base64: true,
+    });
+
+    if (result.canceled) return;
+    const selected = result.assets[0];
+    if (!selected?.uri) return;
+
+    const isVideo = selected.type === 'video' || selected.mimeType?.startsWith('video/');
+    const mimeType = selected.mimeType ?? (isVideo ? 'video/mp4' : 'image/jpeg');
+    const extension = mimeType.includes('/') ? mimeType.split('/')[1]?.replace('jpeg', 'jpg') : isVideo ? 'mp4' : 'jpg';
+    const name = selected.fileName ?? `clinical-gallery-${Date.now()}.${extension || (isVideo ? 'mp4' : 'jpg')}`;
+    const asset = await buildEvidenceAsset({
+      uri: selected.uri,
+      kind: isVideo ? 'video' : 'image',
+      name,
+      mimeType,
+      base64: isVideo ? undefined : selected.base64 ?? undefined,
+    });
+    setClinicalEvidence((items) => [...items, asset]);
+    if (!isVideo) setClinicalPhotoUri(selected.uri);
+    setStage('ready');
+  };
+
   const pickClinicalFile = async () => {
     const result = await DocumentPicker.getDocumentAsync({
       type: ['application/pdf', 'image/png', 'image/jpeg'],
@@ -614,13 +650,35 @@ export default function ClinicScreen() {
                 </TouchableOpacity>
               </View>
               {cameraMode === 'picture' ? (
-                <TouchableOpacity style={styles.shutterButton} onPress={captureClinicalPhoto}>
-                  <View style={styles.shutterInner} />
-                </TouchableOpacity>
+                <View style={styles.captureActionRow}>
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel="Choose clinical image or video from gallery"
+                    style={styles.galleryButton}
+                    onPress={pickClinicalGalleryMedia}
+                  >
+                    <ImagePlus color={colors.white} size={24} />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.shutterButton} onPress={captureClinicalPhoto}>
+                    <View style={styles.shutterInner} />
+                  </TouchableOpacity>
+                  <View style={styles.captureSideSpacer} />
+                </View>
               ) : (
-                <TouchableOpacity style={[styles.videoShutterButton, recordingClinicalVideo && styles.videoShutterButtonActive]} onPress={recordClinicalVideo}>
-                  <Text style={styles.videoShutterText}>{recordingClinicalVideo ? 'Stop Video' : 'Record Video'}</Text>
-                </TouchableOpacity>
+                <View style={styles.captureActionRow}>
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel="Choose clinical image or video from gallery"
+                    style={styles.galleryButton}
+                    onPress={pickClinicalGalleryMedia}
+                  >
+                    <ImagePlus color={colors.white} size={24} />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.videoShutterButton, recordingClinicalVideo && styles.videoShutterButtonActive]} onPress={recordClinicalVideo}>
+                    <Text style={styles.videoShutterText}>{recordingClinicalVideo ? 'Stop Video' : 'Record Video'}</Text>
+                  </TouchableOpacity>
+                  <View style={styles.captureSideSpacer} />
+                </View>
               )}
             </View>
           </View>
@@ -1404,6 +1462,29 @@ const styles = StyleSheet.create({
   },
   cameraModeTextActive: {
     color: colors.white,
+  },
+  captureActionRow: {
+    width: '100%',
+    maxWidth: 340,
+    minHeight: 82,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  galleryButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0,0,0,0.58)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  captureSideSpacer: {
+    width: 56,
+    height: 56,
   },
   shutterButton: {
     width: 76,

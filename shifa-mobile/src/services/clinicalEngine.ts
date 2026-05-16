@@ -88,11 +88,17 @@ export async function analyzeClinicalCase(input: ClinicalEngineInput): Promise<C
     );
   }
 
-  const localDecision = await analyzeWithLiteRT(input).catch(() => null);
+  const localDecision = await analyzeWithLiteRT(input).catch((error) => {
+    console.warn('SHIFA LiteRT local inference unavailable:', error instanceof Error ? error.message : error);
+    return null;
+  });
   if (localDecision) {
     decision = localDecision;
   } else {
-    const ggufDecision = await analyzeWithLlama(input).catch(() => null);
+    const ggufDecision = await analyzeWithLlama(input).catch((error) => {
+      console.warn('SHIFA GGUF local inference unavailable:', error instanceof Error ? error.message : error);
+      return null;
+    });
     if (ggufDecision) {
       decision = ggufDecision;
     } else if (input.online && isGeminiConfigured()) {
