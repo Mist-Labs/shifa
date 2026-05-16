@@ -32,8 +32,8 @@ LABEL_MAP = {
     "rpg": "RPG",
     "rpg-7": "RPG",
     "knife": "KNIFE",
-    "knife_deploy": "KNIFE",
-    "knife_weapon": "KNIFE",
+    "knife deploy": "KNIFE",
+    "knife weapon": "KNIFE",
     "stabbing": "KNIFE",
     "person": "PERSON",
     "aggressor": "PERSON",
@@ -83,7 +83,15 @@ def export_split(dataset: Any, split: str, out_dir: Path, label_names: list[str]
         lines: list[str] = []
 
         for bbox, category in zip(bboxes, categories):
-            label = str(category)
+            # FIX: resolve integer index → string label via label_names
+            if isinstance(category, int):
+                if category < 0 or category >= len(label_names):
+                    stats["skipped"] += 1
+                    continue
+                label = label_names[category]
+            else:
+                label = str(category)
+
             target_label = canonical_label(label)
             if not target_label or target_label not in class_to_id:
                 continue
@@ -121,6 +129,10 @@ def main() -> None:
 
     dataset = load_dataset(dataset_name)
     label_names = category_names(next(iter(dataset.values())).features)
+
+    # Sanity-check: surface raw names so LABEL_MAP gaps are visible early
+    print(f"Raw category names from dataset ({len(label_names)}): {label_names}")
+
     manifest: dict[str, Any] = {
         "dataset": dataset_name,
         "classes": CLASS_NAMES,
@@ -131,6 +143,16 @@ def main() -> None:
         if source_split not in dataset:
             continue
         manifest["splits"][target_split] = export_split(dataset[source_split], target_split, out_dir, label_names)
+
+    # FIX: fail loudly if training split exported nothing — before YOLO wastes time
+    train_images = out_dir / "train" / "images"
+    exported = list(train_images.iterdir()) if train_images.exists() else []
+    if not exported:
+        raise RuntimeError(
+            f"No training images exported to {train_images}.\n"
+            f"Check LABEL_MAP covers all raw category names above.\n"
+            f"train split stats: {manifest['splits'].get('train')}"
+        )
 
     yaml_path = out_dir / "data.yaml"
     yaml_path.write_text(
