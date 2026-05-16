@@ -83,7 +83,7 @@ def export_split(dataset: Any, split: str, out_dir: Path, label_names: list[str]
         lines: list[str] = []
 
         for bbox, category in zip(bboxes, categories):
-            label = label_names[int(category)] if label_names else str(category)
+            label = str(category)
             target_label = canonical_label(label)
             if not target_label or target_label not in class_to_id:
                 continue
