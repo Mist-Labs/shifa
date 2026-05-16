@@ -29,6 +29,7 @@ export function deriveFacilityStatus(cases: ShifaCase[]): FacilityStatus[] {
     { id: 'drc-isolation', name: 'Eastern DRC Isolation & Vaccination Desk', country: 'drc', services: ['mpox', 'measles', 'isolation'], urgentReferrals: 0, operational: true, lastSignal: '' },
     { id: 'so-emoc', name: 'Somalia Emergency Obstetric Referral Desk', country: 'somalia', services: ['maternal', 'neonatal', 'emergency'], urgentReferrals: 0, operational: true, lastSignal: '' },
     { id: 'ng-meningitis', name: 'Northern Nigeria Meningitis Surveillance Desk', country: 'nigeria', services: ['meningitis', 'neonatal', 'emergency'], urgentReferrals: 0, operational: true, lastSignal: '' },
+    { id: 'rw-chw', name: 'Rwanda CHW Referral Coordination Desk', country: 'rwanda', services: ['pediatrics', 'fever', 'nutrition'], urgentReferrals: 0, operational: true, lastSignal: '' },
   ];
 
   for (const record of cases) {
