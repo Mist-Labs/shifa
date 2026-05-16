@@ -117,6 +117,7 @@ Physical-device testing confirmed that the E2B GGUF runtime can load and complet
 | Offline E2B GGUF analysis | Completed successfully on Android |
 | Offline Kinyarwanda output | Completed successfully |
 | Offline Kinyarwanda speech playback | Completed successfully |
+| Regional/local TTS voice preference | Implemented; uses installed regional voice when available, otherwise falls back to system default |
 | Offline speech-to-text pack | Added to first-run model download; physical-device transcription validation pending |
 | Case logging | Saved locally |
 | Data center sync | Confirmed after connectivity was available |

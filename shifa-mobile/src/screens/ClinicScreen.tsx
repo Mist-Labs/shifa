@@ -1012,16 +1012,20 @@ function ResultScreen({
     }
 
     setSpeaking(true);
-    void setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
-    Speech.speak(speakableText, {
-      language: ttsLocale(language),
-      rate: 0.84,
-      pitch: 1.03,
-      volume: 1,
-      onDone: releaseSpeechAudio,
-      onStopped: releaseSpeechAudio,
-      onError: releaseSpeechAudio,
-    });
+    void (async () => {
+      const voice = await resolvePreferredTtsVoice(language);
+      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+      Speech.speak(speakableText, {
+        language: ttsLocale(language),
+        voice,
+        rate: 0.84,
+        pitch: 1.03,
+        volume: 1,
+        onDone: releaseSpeechAudio,
+        onStopped: releaseSpeechAudio,
+        onError: releaseSpeechAudio,
+      });
+    })().catch(releaseSpeechAudio);
   }, [language, releaseSpeechAudio, speakableText, speaking]);
 
   return (
@@ -1166,6 +1170,76 @@ function readableEngineMode(mode?: ClinicalDecision['engineMode'], language?: st
   if (mode === 'cloud_fallback') return labels.cloud_fallback;
   if (mode === 'protocol_fallback') return labels.protocol_fallback;
   return labels.default;
+}
+
+type SpeechVoice = Awaited<ReturnType<typeof Speech.getAvailableVoicesAsync>>[number];
+
+const preferredVoiceCache = new Map<string, string | undefined>();
+
+const AFRICAN_TTS_PREFERENCES: Record<string, string[]> = {
+  en: ['en-NG', 'en-ZA', 'en-KE', 'en-GH', 'en-RW', 'en-UG', 'en-TZ', 'en-GB', 'en-US', 'en'],
+  fr: ['fr-CD', 'fr-RW', 'fr-BI', 'fr-CM', 'fr-SN', 'fr-CI', 'fr-FR', 'fr'],
+  ar: ['ar-SD', 'ar-EG', 'ar-SA', 'ar-AE', 'ar'],
+  so: ['so-SO', 'so'],
+  rw: ['rw-RW', 'rw'],
+  ha: ['ha-NG', 'ha'],
+  ln: ['ln-CD', 'fr-CD', 'fr-RW', 'fr'],
+};
+
+const AFRICAN_VOICE_NAME_HINTS = [
+  'africa',
+  'afrique',
+  'nigeria',
+  'nigerian',
+  'south africa',
+  'kenya',
+  'ghana',
+  'rwanda',
+  'sudan',
+  'congo',
+  'cameroon',
+  'senegal',
+  'hausa',
+  'somali',
+  'kinyarwanda',
+  'lingala',
+];
+
+async function resolvePreferredTtsVoice(language: string): Promise<string | undefined> {
+  const locale = ttsLocale(language);
+  const languageCode = locale.split('-')[0]?.toLowerCase() || 'en';
+  if (preferredVoiceCache.has(languageCode)) return preferredVoiceCache.get(languageCode);
+
+  try {
+    const voices = await Speech.getAvailableVoicesAsync();
+    const voice = selectPreferredTtsVoice(voices, languageCode);
+    preferredVoiceCache.set(languageCode, voice?.identifier);
+    return voice?.identifier;
+  } catch {
+    preferredVoiceCache.set(languageCode, undefined);
+    return undefined;
+  }
+}
+
+function selectPreferredTtsVoice(voices: SpeechVoice[], languageCode: string): SpeechVoice | undefined {
+  const preferences = AFRICAN_TTS_PREFERENCES[languageCode] ?? [languageCode];
+  const scored = voices
+    .map((voice) => ({ voice, score: scoreTtsVoice(voice, preferences, languageCode) }))
+    .filter((entry) => entry.score > 0)
+    .sort((a, b) => b.score - a.score);
+  return scored[0]?.voice;
+}
+
+function scoreTtsVoice(voice: SpeechVoice, preferences: string[], languageCode: string): number {
+  const voiceLanguage = voice.language.toLowerCase().replace('_', '-');
+  const voiceName = voice.name.toLowerCase();
+  const exactPreferenceIndex = preferences.findIndex((preference) => voiceLanguage === preference.toLowerCase());
+  if (exactPreferenceIndex >= 0) return 1000 - exactPreferenceIndex * 10;
+  const prefixPreferenceIndex = preferences.findIndex((preference) => voiceLanguage.startsWith(preference.toLowerCase()));
+  if (prefixPreferenceIndex >= 0) return 700 - prefixPreferenceIndex * 10;
+  const regionalNameBonus = AFRICAN_VOICE_NAME_HINTS.some((hint) => voiceName.includes(hint)) ? 80 : 0;
+  if (voiceLanguage.startsWith(`${languageCode}-`) || voiceLanguage === languageCode) return 300 + regionalNameBonus;
+  return regionalNameBonus;
 }
 
 function resolveClinicalLanguage(profileLanguage: string | undefined, profileId: string | undefined, uiLanguage: string): string {

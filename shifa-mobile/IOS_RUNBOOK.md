@@ -107,7 +107,7 @@ After the build succeeds, submit through EAS or upload from Apple Transporter.
 - Airplane-mode clinical analysis works after the GGUF model is downloaded.
 - Recorded patient speech is converted to symptom text with the offline Whisper base model before local analysis.
 - Cloud fallback works when online and no local model is present.
-- TTS speaks the result in the selected CHW language and stops cleanly.
+- TTS speaks the result in the selected CHW language, prefers installed regional/local voices when available, falls back to the system default, and stops cleanly.
 - Camera, video, file upload, microphone, and location permissions show clear iOS prompts.
 - Cases save locally and reopen from the Cases screen.
 - Sync works against the deployed HTTPS backend.

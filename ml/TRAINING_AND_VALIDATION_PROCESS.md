@@ -324,7 +324,7 @@ Do not use:
 4. **Synthetic-label mismatches** — known moderate malnutrition / SAM conflicts were handled in validation guardrail logic and documented for future dataset cleanup.
 5. **LiteRT packaging** — fine-tuned E2B LiteRT-LM export succeeded on Vast.ai A100/high-RAM infrastructure and was uploaded to R2 as the primary mobile runtime artifact.
 6. **Android integration** — the custom app downloads the LiteRT-LM model on first launch, keeps GGUF as fallback, and applies the same deterministic WHO/IMCI guardrails before returning decisions.
-7. **Offline voice pipeline** — Whisper base STT is part of the first-run offline setup and converts recorded patient speech into editable symptom text before local clinical inference. TTS speaks the result in the selected CHW language.
+7. **Offline voice pipeline** — Whisper base STT is part of the first-run offline setup and converts recorded patient speech into editable symptom text before local clinical inference. TTS speaks the result in the selected CHW language, preferring installed regional/local device voices when available and falling back to the system default.
 
 ---
 

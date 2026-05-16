@@ -21,7 +21,7 @@ The wrong call — keeping a child home who needed urgent referral, or sending s
 
 ### Clinical Triage
 
-The CHW speaks or types symptoms. SHIFA listens — in Arabic, Somali, French, Lingala, Kinyarwanda, or Hausa — runs a fine-tuned Gemma 4 model on the device, and gives a clear answer: treat at home, refer routinely, or refer urgently right now. The voice response comes back in the CHW's own language.
+The CHW speaks or types symptoms. SHIFA listens — in Arabic, Somali, French, Lingala, Kinyarwanda, or Hausa — runs a fine-tuned Gemma 4 model on the device, and gives a clear answer: treat at home, refer routinely, or refer urgently right now. The result is read aloud in the CHW's language, using the closest local or regional voice available on the device so the guidance sounds familiar and easy to understand.
 
 When the models are downloaded, this runs with no internet at all. When they're not, it falls back to Gemini API. Case data syncs to a coordinator dashboard whenever connectivity returns.
 
@@ -37,7 +37,7 @@ Every case logged in the field feeds a coordinator dashboard. Spatial DBSCAN clu
 
 ## Try It
 
-**[Install the Android preview build](https://expo.dev/accounts/evans0075/projects/shifa-health/builds/46836d0b-02e2-4b83-9313-c7b256d465d4)**
+**[Install the Android preview build](https://expo.dev/accounts/evans0075/projects/shifa-health/builds/f6331fc5-6c11-49ee-8ba3-6dea8bc0292b)**
 
 On first setup, the app downloads the offline E2B clinical model and the Whisper base voice-input model. Skip those and it runs in cloud fallback mode.
 
@@ -138,7 +138,7 @@ Acute watery diarrhea / cholera · Severe and moderate acute malnutrition · Neo
 
 ## Field Notes
 
-Physical Android testing confirmed first-run model download, offline E2B analysis, Kinyarwanda output, TTS playback, local case logging, and sync to the backend when connectivity returned. LiteRT-LM `.litertlm` is now the primary mobile runtime. GGUF stays as a documented fallback.
+Physical Android testing confirmed first-run model download, offline E2B analysis, Kinyarwanda output, TTS playback, regional/local voice preference fallback, local case logging, and sync to the backend when connectivity returned. LiteRT-LM `.litertlm` is now the primary mobile runtime. GGUF stays as a documented fallback.
 
 Offline STT — Whisper base — is part of the first-run setup. Voice recordings try offline transcription first. If that fails and there's no typed input, the app blocks silent analysis and asks the CHW to type or reconnect. No guessing.
 
