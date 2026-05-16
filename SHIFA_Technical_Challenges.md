@@ -1,6 +1,6 @@
 # SHIFA - Technical Challenges & Engineering Decisions
 
-> Documentation of real engineering challenges encountered during the Gemma 4 Good Hackathon submission.
+> Documentation of real engineering challenges encountered during SHIFA model training, validation, and mobile runtime export.
 > This is an honest account of what worked, what failed, and how we solved it.
 
 ## 1. Training Environment - Version Hell
@@ -216,16 +216,3 @@ Final protocol adherence after fuzzy matching: **100%**.
 | Kaggle disk limits for export | High | `/tmp` workaround + streamed upload |
 | Fine-tuned LiteRT export OOM on Kaggle | High | Re-ran E2B on Vast.ai A100/high-RAM instance; exported `.litertlm` successfully |
 | Strict string matching in validation | Medium | Fuzzy + synonym matching |
-
-## Submission Reminder
-
-Include this document in the hackathon submission artifacts alongside:
-
-- `ml/TRAINING_AND_VALIDATION_PROCESS.md`
-- `ml/TRAINING_AND_VALIDATION_RESULTS.md`
-- `ml/reports/training_manifest.json`
-- `ml/reports/validation_metrics.json`
-- `ml/reports/upload_manifest.json`
-- Demo video and architecture diagram
-
-Documented by Okoli Evans / Mist Labs - Gemma 4 Good Hackathon, May 2026.

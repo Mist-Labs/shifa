@@ -339,7 +339,7 @@ The first SHIFA E4B fine-tune proves clinical reasoning and offline-capable arch
 | Mid-range Android, 4-6GB RAM | Expected for E2B LiteRT-LM, pending full benchmark | E2B LiteRT-LM is the primary target; GGUF fallback was functional but slow in physical testing |
 | Low-end Android, 3-4GB RAM / $50 class | Not yet validated | The 3.1GB LiteRT-LM artifact plus OS/app memory pressure requires careful testing before making claims |
 
-For hackathon and field deployment language, the accurate claim is:
+For field deployment language, the accurate claim is:
 
 > SHIFA is designed for offline inference on mid-range and high-end Android devices, with an optimization roadmap for lower-cost phones.
 

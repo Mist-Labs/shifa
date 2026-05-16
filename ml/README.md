@@ -108,13 +108,4 @@ Raw PDFs can be placed in `data/raw/`. The generator creates synthetic CHW cases
 - `reports/upload_manifest.json`
 - `models/shifa-gemma4-e4b-finetuned.tflite`
 
-The validation report is the source for the submission metrics table. Training and validation are complete for the adapter/guardrail milestone and the latest report has been uploaded to R2. Do not tick the mobile runtime checklist boxes until LiteRT export, APK integration, and physical-device airplane-mode inference are complete.
-
-## Next Phase
-
-1. Add the final validation table and safety-guardrail explanation to the hackathon write-up.
-2. Convert or package the trained adapter for the chosen mobile runtime path.
-3. Wire mobile inference to the local Gemma runtime plus the same deterministic guardrails.
-4. Improve danger-sign extraction above 92% by normalizing expected danger labels and prompting the model to emit canonical protocol danger signs.
-5. Audit the few remaining synthetic-label mismatches, especially uncomplicated malnutrition cases that mention bilateral edema.
-6. Keep the uploaded R2 artifacts as the reproducible evidence trail for training and validation.
+The validation report is the source for the clinical metrics table. Training, validation, LiteRT export, mobile packaging, and physical-device offline testing are documented in the linked process and results reports. R2 artifacts remain the reproducible evidence trail for training and validation.

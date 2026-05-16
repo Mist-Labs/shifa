@@ -190,10 +190,3 @@ The most important safety result is shared across both models:
 | `ml/reports/upload_manifest.json` | R2 upload proof |
 | `ml/reports/download_manifest.json` | R2 download proof |
 | `SHIFA_Technical_Challenges.md` | Engineering decisions and challenges |
-
-## Next Phase
-
-1. Download and commit the E2B report artifacts from R2 if they are not present locally.
-2. Download the E2B `.litertlm` on Android and validate LiteRT inference on a physical device.
-3. Run the 60-case suite through the on-device LiteRT runtime and compare against Kaggle validation.
-4. Keep GGUF as fallback and optimize only if LiteRT is unavailable on a target device.
