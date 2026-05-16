@@ -8,7 +8,23 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from finetune.common import env, env_float, env_int, resolve_path, write_json
 
 
+def _patch_raytune() -> None:
+    """
+    Ultralytics' raytune callback calls ray.train._internal.session._get_session()
+    which was renamed to get_session() in newer Ray versions. Monkeypatch the
+    missing attribute so the callback becomes a no-op instead of crashing.
+    """
+    try:
+        import ray.train._internal.session as _session
+        if not hasattr(_session, "_get_session"):
+            _session._get_session = lambda: None
+    except Exception:
+        pass
+
+
 def main() -> None:
+    _patch_raytune()
+
     try:
         from ultralytics import YOLO
     except ImportError as exc:
@@ -46,7 +62,11 @@ def main() -> None:
 
     model = YOLO(str(target))
     export_format = env("SHIFA_GUARD_EXPORT_FORMAT", "tflite")
-    exported = model.export(format=export_format, imgsz=env_int("SHIFA_GUARD_IMAGE_SIZE", 640), int8=env("SHIFA_GUARD_INT8", "1") == "1")
+    exported = model.export(
+        format=export_format,
+        imgsz=env_int("SHIFA_GUARD_IMAGE_SIZE", 640),
+        int8=env("SHIFA_GUARD_INT8", "1") == "1",
+    )
     exported_path = Path(exported)
     exported_target = output_dir / "shifa-guard-weapon-detector.tflite"
     if exported_path.exists():

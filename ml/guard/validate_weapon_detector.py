@@ -32,6 +32,21 @@ def main() -> None:
         iou=env_float("SHIFA_GUARD_VAL_IOU", 0.5),
     )
     box = metrics.box
+
+    # Per-class mAP50: ap_class_index maps result indices → CLASS_NAMES indices
+    per_class_map50: dict[str, float] = {}
+    if hasattr(box, "ap_class_index") and hasattr(box, "ap50"):
+        for result_idx, class_idx in enumerate(box.ap_class_index):
+            if class_idx < len(CLASS_NAMES):
+                per_class_map50[CLASS_NAMES[class_idx]] = float(box.ap50[result_idx])
+
+    # Weapon-only mAP50: average over weapon classes that appeared in the val split
+    weapon_map50_values = [per_class_map50[c] for c in WEAPON_CLASSES if c in per_class_map50]
+    weapon_map50 = sum(weapon_map50_values) / len(weapon_map50_values) if weapon_map50_values else 0.0
+
+    min_weapon_map50 = env_float("SHIFA_GUARD_MIN_WEAPON_MAP50", 0.85)
+    min_overall_map50 = env_float("SHIFA_GUARD_MIN_OVERALL_MAP50", 0.80)
+
     result = {
         "model": str(model_path),
         "data_yaml": str(data_yaml),
@@ -40,21 +55,29 @@ def main() -> None:
         "weapon_classes": WEAPON_CLASSES,
         "thresholds": {
             "runtime_confirm_confidence": env_float("SHIFA_GUARD_CONFIRM_CONF", 0.65),
-            "min_weapon_map50": env_float("SHIFA_GUARD_MIN_WEAPON_MAP50", 0.85),
-            "min_overall_map50": env_float("SHIFA_GUARD_MIN_OVERALL_MAP50", 0.80),
+            "min_weapon_map50": min_weapon_map50,
+            "min_overall_map50": min_overall_map50,
         },
         "metrics": {
             "map50": float(box.map50),
             "map50_95": float(box.map),
             "precision": float(box.mp),
             "recall": float(box.mr),
+            "per_class_map50": per_class_map50,
+            "weapon_map50": weapon_map50,
         },
         "passed_targets": {
-            "overall_map50": float(box.map50) >= env_float("SHIFA_GUARD_MIN_OVERALL_MAP50", 0.80),
+            "overall_map50": float(box.map50) >= min_overall_map50,
+            "weapon_map50": weapon_map50 >= min_weapon_map50,   # was missing
         },
     }
     write_json(report_path, result)
-    print(f"Guard mAP50: {result['metrics']['map50']:.3f}")
+
+    print(f"Guard overall mAP50 : {result['metrics']['map50']:.3f}  (target >= {min_overall_map50:.2f}  {'✅' if result['passed_targets']['overall_map50'] else '❌'})")
+    print(f"Guard weapon  mAP50 : {weapon_map50:.3f}  (target >= {min_weapon_map50:.2f}  {'✅' if result['passed_targets']['weapon_map50'] else '❌'})")
+    if per_class_map50:
+        for cls, val in per_class_map50.items():
+            print(f"  {cls:<14}: {val:.3f}")
     print(f"Guard report: {resolve_path(report_path)}")
 
 
