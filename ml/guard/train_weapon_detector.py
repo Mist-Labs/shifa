@@ -81,7 +81,7 @@ def main() -> None:
         imgsz=env_int("SHIFA_GUARD_IMAGE_SIZE", 640),
         int8=env("SHIFA_GUARD_INT8", "1") == "1",
         data=str(data_yaml),
-        opset=env_int("SHIFA_GUARD_ONNX_OPSET", 18),
+        opset=env_int("SHIFA_GUARD_ONNX_OPSET", 12),
     )
     exported_path = Path(exported)
     exported_target = output_dir / "shifa-guard-weapon-detector.tflite"
