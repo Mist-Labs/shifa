@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -85,14 +86,25 @@ def load_roboflow() -> Any:
 
 
 def download_dataset(api_key: str, workspace: str, project: str, version: int, out_dir: Path) -> Path:
-    Roboflow = load_roboflow()
-    rf = Roboflow(api_key=api_key)
-    rf_project = rf.workspace(workspace).project(project)
-    rf_version = rf_project.version(version)
+    dataset_url = env("SHIFA_RF_DATASET_URL", f"{workspace}/{project}/{version}")
 
-    print(f"Downloading Roboflow dataset {workspace}/{project} v{version} in YOLOv8 format...")
-    downloaded = rf_version.download("yolov8", location=str(out_dir), overwrite=True)
-    return Path(downloaded.location)
+    print(f"Downloading Roboflow Universe dataset {dataset_url} in YOLOv8 format...")
+    try:
+        subprocess.run(
+            ["roboflow", "download", "-f", "yolov8", "-l", str(out_dir), dataset_url],
+            check=True,
+        )
+    except FileNotFoundError as exc:
+        raise SystemExit(
+            "Missing roboflow CLI. Run: python -m pip install -r requirements-guard.txt"
+        ) from exc
+    except subprocess.CalledProcessError as exc:
+        raise SystemExit(
+            "Roboflow dataset download failed. Confirm the dataset URL/version is public "
+            "or fork it into your workspace, then set SHIFA_RF_DATASET_URL."
+        ) from exc
+
+    return find_data_yaml(out_dir).parent
 
 
 def find_data_yaml(dataset_dir: Path) -> Path:
