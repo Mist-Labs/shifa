@@ -13,11 +13,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from finetune.common import env, resolve_path, write_json
 
 
-# Roboflow dataset: universe.roboflow.com/yolov7test-pdxwq/weapon-detection-m7tpo
+# Roboflow dataset: universe.roboflow.com/yolov7test-u13vc/weapon-detection-m7qso
 # Exported in YOLOv8 format: pre-split, pre-annotated, no COCO bbox conversion.
-DEFAULT_RF_WORKSPACE = "yolov7test-pdxwq"
-DEFAULT_RF_PROJECT = "weapon-detection-m7tpo"
-DEFAULT_RF_VERSION = "1"
+DEFAULT_RF_WORKSPACE = "yolov7test-u13vc"
+DEFAULT_RF_PROJECT = "weapon-detection-m7qso"
+DEFAULT_RF_VERSION = "16"
 
 CLASS_NAMES = ["GUN", "KNIFE", "PERSON"]
 
