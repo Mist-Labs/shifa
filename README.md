@@ -15,6 +15,12 @@ Community health workers in crisis settings make life-or-death decisions with al
 
 The wrong call — keeping a child home who needed urgent referral, or sending someone on a dangerous journey they didn't need — has real consequences. SHIFA exists to give that CHW one more reliable tool.
 
+**What makes SHIFA different:**
+
+- Fine-tuned Gemma 4 E2B runs fully offline on Android after setup — no cloud dependency for clinical decisions.
+- Two-layer safety architecture: learned model reasoning plus deterministic WHO/IMCI guardrails that model output cannot override.
+- Built for the actual field: six languages, five crisis-country contexts, physical Android offline smoke testing, SMS/BLE Guard relay, and dashboard outbreak monitoring.
+
 ---
 
 ## What It Does
@@ -27,7 +33,7 @@ When the models are downloaded, this runs with no internet at all. When they're 
 
 ### SHIFA Guard
 
-If a CHW encounters a threat in the field, Guard lets them capture photo or video evidence. The app analyzes it for armed individuals, visible weapons, armed convoys, or checkpoint situations. If a threat is confirmed, it attaches GPS coordinates, queues an SMS alert to saved coordinator numbers via Africa's Talking, logs the event locally, and attempts a Bluetooth mesh relay to other nearby SHIFA devices — so the alert can still propagate even without a cell signal.
+If a CHW encounters a threat in the field, Guard lets them capture photo or video evidence. The offline detector analyzes still images for visible weapons and armed individuals, while Gemini fallback handles richer scene context such as checkpoints or convoy-like situations when connectivity is available. If a threat is confirmed, SHIFA attaches GPS coordinates, queues an SMS alert to saved coordinator numbers via Africa's Talking, logs the event locally, and attempts a Bluetooth mesh relay to other nearby SHIFA devices — so the alert can still propagate even without a cell signal.
 
 Guard also publishes and downloads a compact offline firearm detector (`.tflite`, 5.35 MB). On Android, still-image Guard evidence can run through a native TFLite bridge before cloud fallback. The current validated release gates alerts on visible firearms: `GUN` mAP50 is **0.725** against a 0.60 release target. Knife detection is treated as experimental and never triggers dispatch by itself.
 
@@ -35,6 +41,7 @@ Guard also publishes and downloads a compact offline firearm detector (`.tflite`
 
 Every case logged in the field feeds a coordinator dashboard. Spatial DBSCAN clustering runs over the case records to flag potential hotspots — early warning for cholera, meningitis, measles, and other conditions that move fast in displacement settings.
 On the dashboard map, country boundaries are lightly outlined and regions with active outbreak alerts are highlighted in red for fast coordinator triage.
+Current backend rules use condition-specific DBSCAN windows: cholera/AWD clusters require 5 cases within 3 km over 48 hours, meningitis requires 2 cases within 5 km over 168 hours, measles requires 3 cases within 10 km over 336 hours, and mpox requires 2 cases within 5 km over 336 hours. Backend tests cover clustered AWD/cholera and Nigeria meningitis alert scenarios.
 
 ---
 
@@ -52,6 +59,10 @@ git clone https://github.com/Mist-Labs/shifa.git
 # Run the clinical validation suite
 cd shifa/ml
 pip install unsloth boto3
+# Gemma base model access requires Hugging Face approval:
+# https://huggingface.co/google/gemma-4-e2b-it
+# Published SHIFA artifacts are hosted on public R2 URLs;
+# no R2 credentials are needed for download.
 python scripts/download_artifacts.py
 python finetune/validate.py
 
@@ -61,20 +72,20 @@ npm install
 npx expo run:android
 ```
 
-Or watch the **[demo video](#)** — 3 minutes.
+Demo video coming before the submission deadline.
 
 ---
 
 ## Validation Results
 
-Tested on a 60-case WHO IMCI set. Both the mobile E2B and server E4B models clear every clinical target.
+Tested on a 60-case WHO IMCI set. The mobile E2B clears every clinical target; E4B clears the safety-critical decision, urgent-recall, dosing, and protocol targets, while danger-sign naming is documented in the results report.
 
 | Metric | E2B Mobile | E4B Server | Target |
 |--------|:----------:|:----------:|:------:|
 | Decision accuracy | **95.0%** | **96.7%** | 88% ✅ |
 | **Urgent recall** | **100.0%** | **100.0%** | 95% ✅ |
 | Urgent miss rate | **0.0%** | **0.0%** | — ✅ |
-| Danger sign detection | **95.0%** | 88.3% | 92% ✅ |
+| Danger sign detection | **95.0%** | 88.3% | 92% |
 | Drug dose accuracy | **100.0%** | **100.0%** | 95% ✅ |
 | Protocol adherence | **93.3%** | **100.0%** | 90% ✅ |
 
@@ -103,6 +114,8 @@ Two layers of safety — the model handles reasoning and produces structured cli
 ---
 
 ## The Models
+
+Gemma 4 E2B's edge-oriented architecture and LiteRT-LM export path are what make offline Android clinical inference possible without a cloud dependency on a mid-range device.
 
 | | E2B | E4B |
 |--|-----|-----|

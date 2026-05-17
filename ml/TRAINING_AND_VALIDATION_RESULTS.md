@@ -53,6 +53,8 @@ The training data was cleaned before the final runs to remove invalid decision a
 
 Evidence file: `ml/reports/validation_metrics.json`.
 
+Root cause for the below-target danger-sign score: the model correctly refers urgent cases, but often names danger signs differently from canonical WHO/IMCI labels in multilingual output. Synonym matching in the v2 validation script partially mitigates this; guarded urgent recall remains 100%.
+
 ## E2B Training Run
 
 | Field | Value |
@@ -130,6 +132,8 @@ The first-run offline setup also includes the compact SHIFA Guard firearm detect
 | Alert-trigger class mAP50 | **0.725** | 0.60 | ✅ |
 | `KNIFE` mAP50 | 0.000 | experimental | — |
 
+Overall mAP50 is depressed by the `KNIFE` class due to insufficient training signal in this dataset version. `GUN` mAP50 is the release gate because visible firearm detection is the only dispatch-triggering offline class.
+
 The detector is validated as an offline firearm evidence screen. Android now has a native TFLite bridge for still-image Guard evidence; video evidence and iOS detector execution remain separate implementation targets. Alert dispatch should require high-confidence visible `GUN` detections. `KNIFE` is logged as experimental and should not trigger dispatch by itself. `PERSON` is context only and never a dispatch trigger.
 
 ## Physical Android Smoke Test
@@ -144,6 +148,7 @@ Physical-device testing confirmed that the E2B GGUF runtime can load and complet
 | Regional/local TTS voice preference | Implemented; uses installed regional voice when available, otherwise falls back to system default |
 | Offline speech-to-text pack | Added to first-run model download; physical-device transcription validation pending |
 | Guard firearm detector pack | Added to first-run model download; Android still-image TFLite bridge implemented, physical-device detector smoke test pending |
+| Guard still-image TFLite inference | Android bridge implemented; physical-device detector smoke test pending |
 | Case logging | Saved locally |
 | Data center sync | Confirmed after connectivity was available |
 | Cloud Gemini fallback | Completed successfully when online |

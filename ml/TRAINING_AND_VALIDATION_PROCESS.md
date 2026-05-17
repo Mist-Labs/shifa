@@ -242,7 +242,7 @@ response = decoded[len(prompt):]
 
 ---
 
-## 6. Validation
+## 6. Validation (60-case held-out set)
 
 ### Validation Script
 
@@ -336,7 +336,7 @@ Pipeline:
 1. Download Roboflow dataset `yolov7test-u13vc/weapon-detection-m7qso` version 16 in YOLOv8 format.
 2. Remap source classes into `GUN`, `KNIFE`, and `PERSON`.
 3. Train YOLO11n at 640px input size for 80 epochs.
-4. Export `best.pt` and INT8 TFLite.
+4. Export `best.pt` and TFLite. The current release artifact is FP32; INT8 export is tracked for v2 because torch 2.10's ONNX path and onnx2tf hit a Conv-axis incompatibility during conversion.
 5. Validate with firearm-specific release gates.
 6. Upload model and report artifacts to R2.
 7. Download the TFLite artifact during first-run mobile setup.
