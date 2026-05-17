@@ -325,10 +325,34 @@ Do not use:
 5. **LiteRT packaging** — fine-tuned E2B LiteRT-LM export succeeded on Vast.ai A100/high-RAM infrastructure and was uploaded to R2 as the primary mobile runtime artifact.
 6. **Android integration** — the custom app downloads the LiteRT-LM model on first launch, keeps GGUF as fallback, and applies the same deterministic WHO/IMCI guardrails before returning decisions.
 7. **Offline voice pipeline** — Whisper base STT is part of the first-run offline setup and converts recorded patient speech into editable symptom text before local clinical inference. TTS speaks the result in the selected CHW language, preferring installed regional/local device voices when available and falling back to the system default.
+8. **Guard firearm detector** — a separate YOLO11n detector was trained from the Roboflow YOLOv8 weapon dataset, exported to TFLite, validated with a firearm-specific release gate, uploaded to R2, and added to the mobile first-run offline pack.
+
+## 9. SHIFA Guard Firearm Detector Process
+
+The Guard visual detector is intentionally separate from the clinical Gemma models. It supports threat evidence screening and must not influence clinical triage decisions.
+
+Pipeline:
+
+1. Download Roboflow dataset `yolov7test-u13vc/weapon-detection-m7qso` version 16 in YOLOv8 format.
+2. Remap source classes into `GUN`, `KNIFE`, and `PERSON`.
+3. Train YOLO11n at 640px input size for 80 epochs.
+4. Export `best.pt` and INT8 TFLite.
+5. Validate with firearm-specific release gates.
+6. Upload model and report artifacts to R2.
+
+Release gate:
+
+| Metric | Target | Reason |
+| --- | ---: | --- |
+| `GUN` mAP50 | >= 0.60 | Firearm evidence is the only validated dispatch-triggering class |
+| Alert-trigger class mAP50 | >= 0.60 | Prevents weak detector artifacts from being uploaded as release candidates |
+| Overall mAP50 | reported only | The current dataset has insufficient knife signal |
+
+Latest result: `GUN` mAP50 **0.725**. `KNIFE` remains experimental and should not trigger dispatch alone. `PERSON` is context only.
 
 ---
 
-## 9. Mobile Hardware Reality & Optimization Roadmap
+## 10. Mobile Hardware Reality & Optimization Roadmap
 
 The first SHIFA E4B fine-tune proves clinical reasoning and offline-capable architecture, but deployment claims should be hardware-accurate. A full E4B mobile runtime is not realistic on very low-cost Android phones in its current form.
 

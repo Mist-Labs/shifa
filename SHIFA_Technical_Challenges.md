@@ -153,10 +153,28 @@ After E2B fine-tuning and validation succeeded, the same LiteRT export path was 
 - E4B Q4_K_M GGUF exported and uploaded to R2 as `models/gguf/shifa-gemma4-e4b-q4km.gguf`
 - E2B Q4_K_M GGUF exported successfully and uploaded to R2 as `models/shifa-gemma4-e2b-finetuned/shifa-gemma4-e2b-q4km.gguf`
 - Fine-tuned E2B LiteRT-LM `.litertlm` export succeeded on Vast.ai A100 SXM4 80GB and was uploaded to R2
+- SHIFA Guard YOLO11n firearm detector trained on Roboflow YOLOv8 export, validated on the firearm class, exported to TFLite, and uploaded to R2
 - E4B LiteRT export remains blocked on available export memory and should be retried only on larger high-RAM infrastructure
 - Mobile app now prefers the E2B `.litertlm` runtime through the native Kotlin LiteRT/MediaPipe bridge, with GGUF via `llama.rn`, Gemini cloud fallback, and deterministic protocol fallback retained as safety layers
 
-## 6. Disk & Memory Constraints on Kaggle
+## 6. Guard Detector Dataset & Export
+
+### Problem
+
+The initial Hugging Face weapon dataset path produced unusable detector metrics. Bounding-box conversion fixes did not move mAP meaningfully, which pointed to annotation quality and split imbalance rather than a code-only bug. Knife examples were especially weak.
+
+### Resolution
+
+Switched Guard training to a Roboflow YOLOv8 export (`yolov7test-u13vc/weapon-detection-m7qso` version 16), avoiding the Hugging Face parquet-to-YOLO conversion path entirely. The detector is scoped honestly:
+
+- `GUN` is the validated alert-trigger class.
+- `PERSON` is context only.
+- `KNIFE` remains experimental and should not trigger dispatch by itself.
+- IED/explosive detection requires a separate validated dataset.
+
+Latest Guard validation: `GUN` mAP50 **0.725** against a 0.60 release gate. The exported TFLite artifact is approximately 5.35 MB and is included in the first-run mobile offline pack.
+
+## 7. Disk & Memory Constraints on Kaggle
 
 ### Problem
 
@@ -177,7 +195,7 @@ Total peak requirement is roughly 40 GB disk, exceeding Kaggle's limit by around
 - Cleared Hugging Face hub cache between steps
 - Streamed Hugging Face upload file-by-file to avoid local buffering
 
-## 7. Danger Sign & Protocol Adherence Scoring
+## 8. Danger Sign & Protocol Adherence Scoring
 
 ### Problem
 

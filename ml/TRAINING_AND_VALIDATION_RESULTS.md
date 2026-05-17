@@ -108,6 +108,30 @@ The E2B LiteRT-LM artifact is now the preferred offline Android runtime target. 
 
 The first-run offline setup now also includes the multilingual Whisper base speech-to-text model (`ggml-base.bin`, approximately 142 MB). This allows recorded patient speech to be converted into editable symptom text before the local LiteRT/GGUF clinical model runs. The STT model does not alter the validated clinical model weights, validation guardrails, or scoring logic; it only improves offline voice input routing.
 
+The first-run offline setup also includes the compact SHIFA Guard firearm detector (`guard/shifa-guard-weapon-detector.tflite`, 5,350,968 bytes). This detector is separate from the clinical model and does not affect clinical validation metrics.
+
+## SHIFA Guard Firearm Detector
+
+| Item | Value |
+| --- | --- |
+| Detector | YOLO11n |
+| Dataset | Roboflow `yolov7test-u13vc/weapon-detection-m7qso` version 16 |
+| Classes | `GUN`, `KNIFE`, `PERSON` |
+| Training host | Kaggle T4 |
+| Epochs | 80 |
+| Image size | 640 |
+| PT artifact | `guard/shifa-guard-weapon-detector.pt`, 5,475,994 bytes |
+| TFLite artifact | `guard/shifa-guard-weapon-detector.tflite`, 5,350,968 bytes |
+
+| Metric | Result | Release Target | Status |
+| --- | ---: | ---: | :---: |
+| Overall mAP50 | 0.363 | reported only | — |
+| `GUN` mAP50 | **0.725** | 0.60 | ✅ |
+| Alert-trigger class mAP50 | **0.725** | 0.60 | ✅ |
+| `KNIFE` mAP50 | 0.000 | experimental | — |
+
+The detector is validated as an offline firearm evidence screen. Alert dispatch should require high-confidence visible `GUN` detections. `KNIFE` is logged as experimental and should not trigger dispatch by itself. `PERSON` is context only and never a dispatch trigger.
+
 ## Physical Android Smoke Test
 
 Physical-device testing confirmed that the E2B GGUF runtime can load and complete offline clinical analysis on Android after the first-run model download.
@@ -119,6 +143,7 @@ Physical-device testing confirmed that the E2B GGUF runtime can load and complet
 | Offline Kinyarwanda speech playback | Completed successfully |
 | Regional/local TTS voice preference | Implemented; uses installed regional voice when available, otherwise falls back to system default |
 | Offline speech-to-text pack | Added to first-run model download; physical-device transcription validation pending |
+| Guard firearm detector pack | Added to first-run model download; model artifact validation complete, native mobile inference bridge pending |
 | Case logging | Saved locally |
 | Data center sync | Confirmed after connectivity was available |
 | Cloud Gemini fallback | Completed successfully when online |
@@ -187,6 +212,10 @@ The most important safety result is shared across both models:
 | `models/shifa-gemma4-e2b-finetuned/shifa-gemma4-e2b-finetuned.litertlm` | E2B primary LiteRT-LM runtime model on R2 |
 | `models/shifa-gemma4-e2b-finetuned/shifa-gemma4-e2b-q4km.gguf` | E2B offline runtime model on R2 |
 | `models/shifa-gemma4-e2b-finetuned/shifa-gemma4-e2b-mmproj-f16.gguf` | Optional multimodal projector on R2 |
+| `guard/shifa-guard-weapon-detector.tflite` | Guard offline firearm detector on R2 |
+| `guard/validation_metrics.json` | Guard firearm detector validation evidence |
+| `guard/dataset_manifest.json` | Guard detector dataset/export evidence |
+| `guard/training_manifest.json` | Guard detector training evidence |
 | `ml/reports/upload_manifest.json` | R2 upload proof |
 | `ml/reports/download_manifest.json` | R2 download proof |
 | `SHIFA_Technical_Challenges.md` | Engineering decisions and challenges |

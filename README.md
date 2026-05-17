@@ -29,6 +29,8 @@ When the models are downloaded, this runs with no internet at all. When they're 
 
 If a CHW encounters a threat in the field, Guard lets them capture photo or video evidence. The app analyzes it for armed individuals, visible weapons, armed convoys, or checkpoint situations. If a threat is confirmed, it attaches GPS coordinates, queues an SMS alert to saved coordinator numbers via Africa's Talking, logs the event locally, and attempts a Bluetooth mesh relay to other nearby SHIFA devices — so the alert can still propagate even without a cell signal.
 
+Guard also publishes and downloads a compact offline firearm detector (`.tflite`, 5.35 MB) for native on-device evidence screening integration. The current validated release gates alerts on visible firearms: `GUN` mAP50 is **0.725** against a 0.60 release target. Knife detection is treated as experimental and never triggers dispatch by itself.
+
 ### Outbreak Monitoring
 
 Every case logged in the field feeds a coordinator dashboard. Spatial DBSCAN clustering runs over the case records to flag potential hotspots — early warning for cholera, meningitis, measles, and other conditions that move fast in displacement settings.
@@ -42,7 +44,7 @@ On the dashboard map, country boundaries are lightly outlined and regions with a
 
 **[Open the live coordinator dashboard](https://shifa-dashboard-theta.vercel.app/)**
 
-On first setup, the app downloads the offline E2B clinical model and the Whisper base voice-input model. Skip those and it runs in cloud fallback mode.
+On first setup, the app downloads the offline E2B clinical model, the Whisper base voice-input model, and the compact Guard firearm detector. Skip those and it runs in cloud fallback mode.
 
 ```bash
 git clone https://github.com/Mist-Labs/shifa.git
@@ -130,6 +132,8 @@ Published weights and mobile runtime artifacts are hosted on Cloudflare R2:
 | E2B GGUF fallback runtime | [shifa-gemma4-e2b-q4km.gguf](https://pub-b2b135c13b0a406c8a4dc9c60eadb248.r2.dev/models/shifa-gemma4-e2b-finetuned/shifa-gemma4-e2b-q4km.gguf) |
 | E2B validation metrics | [validation_metrics.json](https://pub-b2b135c13b0a406c8a4dc9c60eadb248.r2.dev/validation_metrics.json) |
 | E2B training manifest | [training_manifest.json](https://pub-b2b135c13b0a406c8a4dc9c60eadb248.r2.dev/training_manifest.json) |
+| Guard firearm detector TFLite | [shifa-guard-weapon-detector.tflite](https://pub-b2b135c13b0a406c8a4dc9c60eadb248.r2.dev/guard/shifa-guard-weapon-detector.tflite) |
+| Guard validation metrics | [guard/validation_metrics.json](https://pub-b2b135c13b0a406c8a4dc9c60eadb248.r2.dev/guard/validation_metrics.json) |
 
 ---
 
@@ -144,6 +148,8 @@ Acute watery diarrhea / cholera · Severe and moderate acute malnutrition · Neo
 Physical Android testing confirmed first-run model download, offline E2B analysis, Kinyarwanda output, TTS playback, regional/local voice preference fallback, local case logging, and sync to the backend when connectivity returned. LiteRT-LM `.litertlm` is now the primary mobile runtime. GGUF stays as a documented fallback.
 
 Offline STT — Whisper base — is part of the first-run setup. Voice recordings try offline transcription first. If that fails and there's no typed input, the app blocks silent analysis and asks the CHW to type or reconnect. No guessing.
+
+The Guard firearm detector is also part of the first-run offline pack. It is validated for firearm evidence screening; knife detection remains experimental until a better-balanced dataset is trained. The app still keeps Gemini Guard analysis as a fallback while the native image-detector bridge is completed.
 
 ---
 

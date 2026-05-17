@@ -40,11 +40,12 @@ const Tab = createBottomTabNavigator();
 type OnboardingStep = 'splash' | 'modelSetup' | 'modelReady' | 'country' | 'language' | 'done';
 const SPLASH_DURATION_MS = 2000;
 const DOWNLOAD_BUFFER_BYTES = 1024 * 1024 * 1024;
-const DEFAULT_OFFLINE_MODEL_BYTES = Platform.OS === 'ios' ? 3575839705 : 3419596601;
+const DEFAULT_OFFLINE_MODEL_BYTES = Platform.OS === 'ios' ? 3581190673 : 3424947569;
 const SETUP_MESSAGES = [
   'Preparing WHO IMCI clinical protocols...',
   'Loading danger sign detection...',
   'Installing offline speech-to-text...',
+  'Installing Guard firearm detection...',
   'Preparing multilingual field guidance...',
   'Configuring offline triage decisions...',
   'Securing local clinical inference...',
@@ -231,7 +232,7 @@ export default function App() {
             </View>
             <Text style={styles.setupTitle}>Set up offline clinical AI</Text>
             <Text style={styles.setupSubtitle}>
-              Download the mobile Gemma E2B model and offline voice input pack once. SHIFA will use them for assessments when the device has no signal.
+              Download the mobile Gemma E2B model, offline voice input pack, and Guard firearm detector once. SHIFA will use them for field work when the device has no signal.
             </Text>
 
             <View style={styles.modelInfoCard}>
@@ -306,6 +307,10 @@ export default function App() {
               <View style={styles.readyRow}>
                 <CheckCircle color={colors.green} size={20} />
                 <Text style={styles.readyText}>Offline speech-to-text model installed</Text>
+              </View>
+              <View style={styles.readyRow}>
+                <CheckCircle color={colors.green} size={20} />
+                <Text style={styles.readyText}>Guard firearm detector model installed</Text>
               </View>
               <View style={styles.readyRow}>
                 <CheckCircle color={colors.green} size={20} />

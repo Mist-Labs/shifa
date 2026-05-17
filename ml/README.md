@@ -88,6 +88,10 @@ The Guard pipeline downloads the configured Roboflow YOLOv8 weapon dataset, rema
 - `guard/shifa-guard-weapon-detector.pt`
 - `guard/shifa-guard-weapon-detector.tflite`
 - `guard/validation_metrics.json`
+- `guard/dataset_manifest.json`
+- `guard/training_manifest.json`
+
+Latest uploaded detector: YOLO11n, 640px input, TFLite size 5,350,968 bytes. Validation gates on firearm detection: `GUN` mAP50 **0.725** against a 0.60 release target. Overall mAP50 is not the release gate because the current Roboflow split has insufficient knife signal; `KNIFE` remains experimental.
 
 Runtime alerts should require high confidence and visible `GUN` detections. Do not trigger emergency dispatch from `PERSON` alone. `KNIFE` is reported as experimental until separately validated. IED/explosive detection requires a separate validated dataset; do not pretend the firearm/knife dataset proves IED detection.
 

@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { Bell, Check, Cloud, Download, Globe2, Languages, MapPin, Moon, Plus, Server, Trash2, User } from 'lucide-react-native';
+import { Bell, Check, Cloud, Download, Globe2, Languages, MapPin, Moon, Plus, Server, Shield, Trash2, User } from 'lucide-react-native';
 import { CountryCode, getActiveCHWProfile, normalizePhone, saveCHWProfile } from '../services/chwProfile';
 import { colors } from '../design/system';
 import { useUIPreferences } from '../services/uiPreferences';
@@ -114,9 +114,9 @@ export default function SettingsScreen() {
       });
       setModelStatus(status);
       const readyMessage = status.liteRTRuntimeReady
-        ? `A LiteRT runtime model is stored on this device. Offline voice input is ${status.sttReady ? 'ready' : 'not installed yet'}. SHIFA will try local inference before cloud or protocol fallback.`
+        ? `A LiteRT runtime model is stored on this device. Offline voice input is ${status.sttReady ? 'ready' : 'not installed yet'}. The Guard firearm detector is ${status.guardDetectorReady ? 'ready' : 'not installed yet'}. SHIFA will try local inference before cloud or protocol fallback.`
         : status.ggufRuntimeReady
-          ? `The E2B GGUF runtime model is stored on this device. Offline voice input is ${status.sttReady ? 'ready' : 'not installed yet'}. SHIFA will try offline local inference before cloud or protocol fallback.`
+          ? `The E2B GGUF runtime model is stored on this device. Offline voice input is ${status.sttReady ? 'ready' : 'not installed yet'}. The Guard firearm detector is ${status.guardDetectorReady ? 'ready' : 'not installed yet'}. SHIFA will try offline local inference before cloud or protocol fallback.`
           : 'No local runtime model is stored on this device yet. Download the E2B LiteRT-LM model for offline clinical inference.';
       Alert.alert(
         'Model artifacts ready',
@@ -357,6 +357,13 @@ export default function SettingsScreen() {
                 : 'Set EXPO_PUBLIC_SHIFA_MODEL_BASE_URL'
             }
             tone={modelStatus?.runtimeReady ? 'good' : 'warn'}
+            dim={darkMode}
+          />
+          <ReadinessRow
+            icon={<Shield color={modelStatus?.guardDetectorReady ? colors.green : colors.amber} size={20} />}
+            label="Guard detector"
+            value={modelStatus?.guardDetectorReady ? 'Offline firearm detector model ready' : 'Cloud Guard analysis only'}
+            tone={modelStatus?.guardDetectorReady ? 'good' : 'warn'}
             dim={darkMode}
           />
           <ReadinessRow

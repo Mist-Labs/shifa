@@ -7,7 +7,7 @@ const MODEL_BASE_URL = envValue('EXPO_PUBLIC_SHIFA_MODEL_BASE_URL', 'shifaModelB
 const MODEL_DIR = `${FileSystem.documentDirectory ?? ''}models/shifa-gemma4-e2b-finetuned/`;
 const MODEL_SETUP_MARKER = `${MODEL_DIR}.setup-dismissed`;
 
-type RuntimeKind = 'litert' | 'gguf' | 'stt';
+type RuntimeKind = 'litert' | 'gguf' | 'stt' | 'guard';
 const SUPPORTED_RUNTIME_KINDS: RuntimeKind[] = Platform.OS === 'ios' ? ['gguf'] : ['litert', 'gguf'];
 const DEFAULT_RUNTIME_KIND: RuntimeKind = Platform.OS === 'ios' ? 'gguf' : 'litert';
 
@@ -30,6 +30,15 @@ const MODEL_ARTIFACTS = [
     downloadByDefault: true,
     estimatedBytes: 147951465,
     url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin',
+  },
+  {
+    key: 'guard/shifa-guard-weapon-detector.tflite',
+    filename: 'shifa-guard-weapon-detector.tflite',
+    required: false,
+    runtime: false,
+    runtimeKind: 'guard' as RuntimeKind,
+    downloadByDefault: true,
+    estimatedBytes: 5350968,
   },
   {
     key: 'models/shifa-gemma4-e2b-finetuned/shifa-gemma4-e2b-q4km.gguf',
@@ -72,6 +81,8 @@ export interface ModelArtifactStatus {
   ggufModelPath?: string;
   sttReady: boolean;
   sttModelPath?: string;
+  guardDetectorReady: boolean;
+  guardDetectorPath?: string;
   totalBytes: number;
   directory: string;
   baseUrl: string;
@@ -101,6 +112,7 @@ export async function getClinicalModelStatus(): Promise<ModelArtifactStatus> {
   const liteRTRuntime = statuses.find((item) => item.artifact.runtimeKind === 'litert' && SUPPORTED_RUNTIME_KINDS.includes(item.artifact.runtimeKind) && item.exists);
   const ggufRuntime = statuses.find((item) => item.artifact.runtimeKind === 'gguf' && SUPPORTED_RUNTIME_KINDS.includes(item.artifact.runtimeKind) && item.exists);
   const sttRuntime = statuses.find((item) => item.artifact.runtimeKind === 'stt' && item.exists);
+  const guardDetector = statuses.find((item) => item.artifact.runtimeKind === 'guard' && item.exists);
   const setupDismissedInfo = await FileSystem.getInfoAsync(MODEL_SETUP_MARKER);
   const defaultDownloads = statuses.filter((item) => item.artifact.downloadByDefault !== false);
   return {
@@ -114,6 +126,8 @@ export async function getClinicalModelStatus(): Promise<ModelArtifactStatus> {
     ggufModelPath: ggufRuntime ? `${MODEL_DIR}${ggufRuntime.artifact.filename}` : undefined,
     sttReady: Boolean(sttRuntime),
     sttModelPath: sttRuntime ? `${MODEL_DIR}${sttRuntime.artifact.filename}` : undefined,
+    guardDetectorReady: Boolean(guardDetector),
+    guardDetectorPath: guardDetector ? `${MODEL_DIR}${guardDetector.artifact.filename}` : undefined,
     downloadedCount: statuses.filter((item) => item.exists).length,
     requiredDownloadedCount: required.filter((item) => item.exists).length,
     requiredCount: required.length,
@@ -141,9 +155,14 @@ export async function getOfflineSTTModelPath(): Promise<string | null> {
   return status.sttModelPath ?? null;
 }
 
+export async function getGuardDetectorModelPath(): Promise<string | null> {
+  const status = await getClinicalModelStatus();
+  return status.guardDetectorPath ?? null;
+}
+
 export async function shouldShowModelSetup(): Promise<boolean> {
   const status = await getClinicalModelStatus();
-  return status.configured && (!status.runtimeReady || !status.sttReady) && !status.setupDismissed;
+  return status.configured && (!status.runtimeReady || !status.sttReady || !status.guardDetectorReady) && !status.setupDismissed;
 }
 
 export async function dismissModelSetup(): Promise<void> {

@@ -14,7 +14,7 @@ This app now has a generated native iOS project without changing the existing An
   - iOS currently uses the E2B GGUF model through `llama.rn` as its local offline runtime because the current LiteRT native bridge is Android/Kotlin-only.
   - Gemini and deterministic protocol fallback remain the final safety fallbacks.
 - The offline model pack is downloaded after user approval. Do not bundle the multi-GB model inside the IPA.
-- First-run setup on iOS downloads the E2B GGUF runtime from R2 plus the Whisper base STT model for offline voice input.
+- First-run setup on iOS downloads the E2B GGUF runtime from R2, the Whisper base STT model for offline voice input, and the compact Guard firearm detector artifact.
 
 ## Prerequisites
 
@@ -102,7 +102,7 @@ After the build succeeds, submit through EAS or upload from Apple Transporter.
 ## Physical Device Validation Checklist
 
 - First launch asks for offline model setup.
-- Offline model download shows progress for the GGUF model and Whisper base STT pack.
+- Offline model download shows progress for the GGUF model, Whisper base STT pack, and Guard firearm detector artifact.
 - App has enough free storage before model download.
 - Airplane-mode clinical analysis works after the GGUF model is downloaded.
 - Recorded patient speech is converted to symptom text with the offline Whisper base model before local analysis.
@@ -112,10 +112,11 @@ After the build succeeds, submit through EAS or upload from Apple Transporter.
 - Cases save locally and reopen from the Cases screen.
 - Sync works against the deployed HTTPS backend.
 - Guard alert camera/video/Bluetooth paths do not crash when permissions are denied.
+- Guard firearm detector artifact is present after setup; native iOS TFLite image inference remains a separate bridge task.
 
 ## Known iOS Risks
 
-- The E2B GGUF artifact is approximately 3.2 GB, plus the Whisper base STT model at approximately 142 MB. iOS testing must confirm download reliability, storage pressure, memory pressure, heat, and inference latency.
+- The E2B GGUF artifact is approximately 3.2 GB, plus the Whisper base STT model at approximately 142 MB and the Guard firearm detector at approximately 5.4 MB. iOS testing must confirm download reliability, storage pressure, memory pressure, heat, and inference latency.
 - LiteRT iOS execution is not enabled yet. The exported `.litertlm` artifact is ready for Android and for a future iOS LiteRT bridge, but iOS should use GGUF until that native module exists.
 - Simulator success is not enough; local inference must be verified on physical hardware.
 - Local iOS compile requires Xcode's iOS platform/runtime. If `xcodebuild` reports `iOS 26.1 is not installed`, install the platform from Xcode > Settings > Components, then rerun `npx expo run:ios`.
