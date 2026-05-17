@@ -74,7 +74,7 @@ The full `requirements.txt` intentionally points to `requirements-gpu.txt` and i
 
 ## Guard Weapon Detector
 
-SHIFA Guard uses a separate compact object detector for phone camera/video evidence. Train it on a GPU box after `.env` is filled:
+SHIFA Guard uses a separate compact object detector for phone camera/video evidence. Add a private `ROBOFLOW_API_KEY` to `.env`, then train it on a GPU box:
 
 ```bash
 cd ml
@@ -83,7 +83,7 @@ pip install -r requirements-guard.txt
 bash scripts/run_guard_training.sh
 ```
 
-The Guard pipeline downloads the configured Hugging Face grouped weapon dataset, exports YOLO-format `GUN`, `KNIFE`, and `PERSON` labels, trains a small YOLO detector, exports an INT8 TFLite model, validates against the test split, then uploads:
+The Guard pipeline downloads the configured Roboflow YOLOv8 weapon dataset, remaps source labels to `GUN`, `KNIFE`, and `PERSON`, trains a small YOLO detector, exports an INT8 TFLite model, validates against the test split, then uploads:
 
 - `guard/shifa-guard-weapon-detector.pt`
 - `guard/shifa-guard-weapon-detector.tflite`
