@@ -24,6 +24,11 @@ export interface LiteRTRuntimeInfo {
 const nativeLiteRT = NativeModules.ShifaLiteRT as ShifaLiteRTNativeModule | undefined;
 const LOCAL_MAX_OUTPUT_TOKENS = 768;
 
+function toNativeFilePath(uri: string): string {
+  if (!uri.startsWith('file://')) return uri;
+  return decodeURIComponent(uri.replace('file://', ''));
+}
+
 export function isLiteRTNativeAvailable(): boolean {
   return Boolean(nativeLiteRT);
 }
@@ -31,6 +36,19 @@ export function isLiteRTNativeAvailable(): boolean {
 export async function getLiteRTRuntimeInfo(): Promise<LiteRTRuntimeInfo> {
   if (!nativeLiteRT) return { ready: false };
   return nativeLiteRT.getRuntimeInfo();
+}
+
+export async function preloadLiteRTRuntime(): Promise<LiteRTRuntimeInfo | null> {
+  if (!nativeLiteRT) {
+    console.warn('SHIFA LiteRT native module is not available in this build.');
+    return null;
+  }
+  const modelPath = await getLiteRTModelPath();
+  if (!modelPath) return null;
+
+  const runtime = await initializeLiteRT(toNativeFilePath(modelPath), ['GPU', 'CPU']);
+  console.log(`SHIFA LiteRT runtime initialized with ${runtime.backend ?? 'unknown'} backend`);
+  return runtime;
 }
 
 export async function analyzeWithLiteRT(input: {
@@ -45,15 +63,35 @@ export async function analyzeWithLiteRT(input: {
   if (!nativeLiteRT) return null;
   const modelPath = await getLiteRTModelPath();
   if (!modelPath) return null;
+  const nativeModelPath = toNativeFilePath(modelPath);
 
   const prompt = buildClinicalPrompt(input);
-  const raw = await generateWithFallbackBackend(modelPath, prompt, input);
+  const raw = await generateWithFallbackBackend(nativeModelPath, prompt, input);
   const parsed = parseModelJson(raw);
   const decision = normalizeCloudClinicalDecision(parsed);
   return {
     ...decision,
     engineMode: 'local_model',
   };
+}
+
+async function initializeLiteRT(modelPath: string, backends: LiteRTBackend[]): Promise<LiteRTRuntimeInfo> {
+  const errors: string[] = [];
+  for (const backend of backends) {
+    try {
+      const current: LiteRTRuntimeInfo = await nativeLiteRT!.getRuntimeInfo().catch(() => ({ ready: false }));
+      if (current.ready && current.modelPath === modelPath && current.backend === backend) {
+        return current;
+      }
+      await nativeLiteRT!.close().catch(() => undefined);
+      return await nativeLiteRT!.init(modelPath, backend, LOCAL_MAX_OUTPUT_TOKENS);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      errors.push(`${backend}: ${message}`);
+      console.warn(`SHIFA LiteRT ${backend} initialization failed:`, message);
+    }
+  }
+  throw new Error(`LiteRT initialization failed. ${errors.join(' | ')}`);
 }
 
 async function generateWithFallbackBackend(
@@ -63,9 +101,8 @@ async function generateWithFallbackBackend(
 ): Promise<string> {
   const errors: string[] = [];
   for (const backend of ['GPU', 'CPU'] as LiteRTBackend[]) {
-    await nativeLiteRT!.close().catch(() => undefined);
     try {
-      await nativeLiteRT!.init(modelPath, backend, LOCAL_MAX_OUTPUT_TOKENS);
+      await initializeLiteRT(modelPath, [backend]);
       const raw = await nativeLiteRT!.generate(prompt);
       parseModelJson(raw);
       return raw;

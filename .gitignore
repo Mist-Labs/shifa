@@ -5,6 +5,7 @@
 .DS_Store
 *.log
 .npmrc
+.local-artifacts/
 node_modules
 backend/data/
 .gradle-cache/

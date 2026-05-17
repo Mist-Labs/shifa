@@ -34,6 +34,7 @@ import {
   ModelArtifactStatus,
   shouldShowModelSetup,
 } from './services/modelManager';
+import { preloadLiteRTRuntime } from './services/litertEngine';
 
 const Tab = createBottomTabNavigator();
 
@@ -82,6 +83,7 @@ export default function App() {
   const [modelDownloadBytes, setModelDownloadBytes] = useState({ written: 0, total: 0 });
   const [modelSetupMessage, setModelSetupMessage] = useState(SETUP_MESSAGES[0]);
   const onboardingOpacity = useRef(new Animated.Value(1)).current;
+  const litertWarmupStarted = useRef(false);
 
   useEffect(() => {
     const initialize = async () => {
@@ -117,6 +119,18 @@ export default function App() {
     });
     return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    if (Platform.OS === 'ios' || !modelStatus?.liteRTRuntimeReady || litertWarmupStarted.current) return;
+    litertWarmupStarted.current = true;
+    void preloadLiteRTRuntime().catch((error) => {
+      litertWarmupStarted.current = false;
+      console.warn(
+        'SHIFA LiteRT runtime warm-up failed. Offline analysis will show a protocol fallback notice if local inference is unavailable.',
+        error instanceof Error ? error.message : error
+      );
+    });
+  }, [modelStatus?.liteRTRuntimeReady]);
 
   const transitionFromSplash = useCallback((nextStep: OnboardingStep) => {
     Animated.timing(onboardingOpacity, {

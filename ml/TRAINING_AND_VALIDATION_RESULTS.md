@@ -108,6 +108,8 @@ Evidence file: `ml/reports/e2b_validation_metrics.json` on R2.
 
 The E2B LiteRT-LM artifact is now the preferred offline Android runtime target. The E2B GGUF remains available as a fallback runtime. Neither multi-GB artifact is bundled into the APK because it would create an impractical install size. The mobile app asks the user to download the LiteRT-LM model on first launch and falls back to cloud/protocol mode if the user skips setup.
 
+The current R2 LiteRT-LM package was rebuilt with the tokenizer export step enabled, then republished over the earlier incomplete package. The live artifact reports `Content-Length: 3271671808` and includes the quantized weights plus bundled SentencePiece tokenizer metadata required by MediaPipe `LlmInference`.
+
 The first-run offline setup now also includes the multilingual Whisper base speech-to-text model (`ggml-base.bin`, approximately 142 MB). This allows recorded patient speech to be converted into editable symptom text before the local LiteRT/GGUF clinical model runs. The STT model does not alter the validated clinical model weights, validation guardrails, or scoring logic; it only improves offline voice input routing.
 
 The first-run offline setup also includes the compact SHIFA Guard firearm detector (`guard/shifa-guard-weapon-detector.tflite`, 5,350,968 bytes). This detector is separate from the clinical model and does not affect clinical validation metrics.

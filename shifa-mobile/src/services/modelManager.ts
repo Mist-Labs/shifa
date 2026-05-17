@@ -19,7 +19,7 @@ const MODEL_ARTIFACTS = [
     runtime: true,
     runtimeKind: 'litert' as RuntimeKind,
     downloadByDefault: DEFAULT_RUNTIME_KIND === 'litert',
-    estimatedBytes: 3271645136,
+    estimatedBytes: 3271671808,
   },
   {
     key: 'models/stt/ggml-base.bin',
