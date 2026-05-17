@@ -47,7 +47,7 @@ Current backend rules use condition-specific DBSCAN windows: cholera/AWD cluster
 
 ## Try It
 
-**[Install the Android preview build](https://expo.dev/accounts/evans0075/projects/shifa-health/builds/f6331fc5-6c11-49ee-8ba3-6dea8bc0292b)**
+**[Install the Android preview build](https://expo.dev/accounts/evans0075/projects/shifa-health/builds/15c4549b-58fc-4910-9288-50e40d741b35)**
 
 **[Open the live coordinator dashboard](https://shifa-dashboard-theta.vercel.app/)**
 
