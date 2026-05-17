@@ -172,7 +172,7 @@ Switched Guard training to a Roboflow YOLOv8 export (`yolov7test-u13vc/weapon-de
 - `KNIFE` remains experimental and should not trigger dispatch by itself.
 - IED/explosive detection requires a separate validated dataset.
 
-Latest Guard validation: `GUN` mAP50 **0.725** against a 0.60 release gate. The exported TFLite artifact is approximately 5.35 MB and is included in the first-run mobile offline pack.
+Latest Guard validation: `GUN` mAP50 **0.725** against a 0.60 release gate. The exported TFLite artifact is approximately 5.35 MB and is included in the first-run mobile offline pack. Android now runs still-image Guard evidence through a native TFLite bridge before Gemini fallback; iOS detector execution and video-frame extraction remain future bridge work.
 
 ## 7. Disk & Memory Constraints on Kaggle
 

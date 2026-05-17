@@ -7,7 +7,10 @@ import com.facebook.react.uimanager.ViewManager
 
 class ShifaLiteRTPackage : ReactPackage {
   override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> =
-    listOf(ShifaLiteRTModule(reactContext))
+    listOf(
+      ShifaLiteRTModule(reactContext),
+      ShifaGuardDetectorModule(reactContext),
+    )
 
   override fun createViewManagers(reactContext: ReactApplicationContext): List<ViewManager<*, *>> =
     emptyList()

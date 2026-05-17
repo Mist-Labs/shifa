@@ -9,6 +9,7 @@ import { startBluetoothThreatRelay, stopBluetoothThreatRelay } from '../modules/
 import { CHWProfile, getActiveCHWProfile } from '../services/chwProfile';
 import { colors, fieldShadow } from '../design/system';
 import { analyzeGuardEvidence, buildEvidenceAsset, EvidenceAsset, getFieldSafeAIMessage, GuardThreatAnalysis, isGeminiConfigured } from '../services/gemini';
+import { analyzeGuardEvidenceOffline } from '../services/guardDetector';
 import { useI18n } from '../services/i18n';
 
 export default function GuardScreen() {
@@ -61,10 +62,6 @@ export default function GuardScreen() {
 
   const analyzeAndDispatchThreat = async () => {
     try {
-      if (!isGeminiConfigured()) {
-        Alert.alert('Google AI key missing', 'Add EXPO_PUBLIC_GOOGLE_API_KEY or EXPO_PUBLIC_GEMINI_API_KEY to shifa-mobile/.env before Guard AI analysis.');
-        return;
-      }
       if (guardEvidence.length === 0) {
         Alert.alert('Evidence required', 'Capture a Guard image or video before running AI threat analysis.');
         return;
@@ -74,6 +71,30 @@ export default function GuardScreen() {
         return;
       }
       setAnalyzing(true);
+      const offlineResult = await analyzeGuardEvidenceOffline(guardEvidence).catch((error) => {
+        console.warn('SHIFA offline Guard detector failed', error);
+        return null;
+      });
+      if (offlineResult?.available && offlineResult.analysis?.threatDetected) {
+        const analysis = offlineResult.analysis;
+        setGuardAnalysis(analysis);
+        setThreatDetected(true);
+        await onThreatConfirmed(analysis.threatType, analysis.urgency, analysis.confidence);
+        Alert.alert('Threat confirmed', 'Offline Guard confirmed a visible firearm. SMS was sent or queued directly from this device and the event was logged.');
+        return;
+      }
+
+      if (!isGeminiConfigured()) {
+        if (offlineResult?.available && offlineResult.analysis) {
+          setGuardAnalysis(offlineResult.analysis);
+          setThreatDetected(false);
+          Alert.alert('No firearm detected offline', offlineResult.analysis.rationale);
+          return;
+        }
+        Alert.alert('Guard analysis unavailable', offlineResult?.reason ?? 'Add EXPO_PUBLIC_GOOGLE_API_KEY or EXPO_PUBLIC_GEMINI_API_KEY for cloud Guard analysis.');
+        return;
+      }
+
       const analysis = await analyzeGuardEvidence(guardEvidence);
       setGuardAnalysis(analysis);
       setThreatDetected(analysis.threatDetected);

@@ -118,6 +118,7 @@ After the build succeeds, submit through EAS or upload from Apple Transporter.
 
 - The E2B GGUF artifact is approximately 3.2 GB, plus the Whisper base STT model at approximately 142 MB and the Guard firearm detector at approximately 5.4 MB. iOS testing must confirm download reliability, storage pressure, memory pressure, heat, and inference latency.
 - LiteRT iOS execution is not enabled yet. The exported `.litertlm` artifact is ready for Android and for a future iOS LiteRT bridge, but iOS should use GGUF until that native module exists.
+- Guard detector TFLite execution is Android-only in this build. iOS downloads the detector artifact for parity, but native iOS image inference still needs its own bridge.
 - Simulator success is not enough; local inference must be verified on physical hardware.
 - Local iOS compile requires Xcode's iOS platform/runtime. If `xcodebuild` reports `iOS 26.1 is not installed`, install the platform from Xcode > Settings > Components, then rerun `npx expo run:ios`.
 - iOS production sync requires HTTPS. Plain `http://10.0.2.2:3000` is emulator-only and should not be used in distributed builds.

@@ -14,4 +14,8 @@
 # whisper.rn offline speech-to-text
 -keep class com.rnwhisper.** { *; }
 
+# SHIFA Guard offline TFLite detector
+-keep class org.tensorflow.lite.** { *; }
+-keep class org.mistlabs.shifa.ShifaGuardDetectorModule { *; }
+
 # Add any project specific keep options here:

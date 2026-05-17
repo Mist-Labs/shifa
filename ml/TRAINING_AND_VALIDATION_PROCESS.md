@@ -325,7 +325,7 @@ Do not use:
 5. **LiteRT packaging** — fine-tuned E2B LiteRT-LM export succeeded on Vast.ai A100/high-RAM infrastructure and was uploaded to R2 as the primary mobile runtime artifact.
 6. **Android integration** — the custom app downloads the LiteRT-LM model on first launch, keeps GGUF as fallback, and applies the same deterministic WHO/IMCI guardrails before returning decisions.
 7. **Offline voice pipeline** — Whisper base STT is part of the first-run offline setup and converts recorded patient speech into editable symptom text before local clinical inference. TTS speaks the result in the selected CHW language, preferring installed regional/local device voices when available and falling back to the system default.
-8. **Guard firearm detector** — a separate YOLO11n detector was trained from the Roboflow YOLOv8 weapon dataset, exported to TFLite, validated with a firearm-specific release gate, uploaded to R2, and added to the mobile first-run offline pack.
+8. **Guard firearm detector** — a separate YOLO11n detector was trained from the Roboflow YOLOv8 weapon dataset, exported to TFLite, validated with a firearm-specific release gate, uploaded to R2, added to the mobile first-run offline pack, and wired into Android still-image evidence analysis through a native TFLite bridge.
 
 ## 9. SHIFA Guard Firearm Detector Process
 
@@ -339,6 +339,8 @@ Pipeline:
 4. Export `best.pt` and INT8 TFLite.
 5. Validate with firearm-specific release gates.
 6. Upload model and report artifacts to R2.
+7. Download the TFLite artifact during first-run mobile setup.
+8. On Android, run still-image Guard evidence through the native TFLite bridge before Gemini fallback.
 
 Release gate:
 

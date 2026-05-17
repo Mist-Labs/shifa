@@ -130,7 +130,7 @@ The first-run offline setup also includes the compact SHIFA Guard firearm detect
 | Alert-trigger class mAP50 | **0.725** | 0.60 | ✅ |
 | `KNIFE` mAP50 | 0.000 | experimental | — |
 
-The detector is validated as an offline firearm evidence screen. Alert dispatch should require high-confidence visible `GUN` detections. `KNIFE` is logged as experimental and should not trigger dispatch by itself. `PERSON` is context only and never a dispatch trigger.
+The detector is validated as an offline firearm evidence screen. Android now has a native TFLite bridge for still-image Guard evidence; video evidence and iOS detector execution remain separate implementation targets. Alert dispatch should require high-confidence visible `GUN` detections. `KNIFE` is logged as experimental and should not trigger dispatch by itself. `PERSON` is context only and never a dispatch trigger.
 
 ## Physical Android Smoke Test
 
@@ -143,7 +143,7 @@ Physical-device testing confirmed that the E2B GGUF runtime can load and complet
 | Offline Kinyarwanda speech playback | Completed successfully |
 | Regional/local TTS voice preference | Implemented; uses installed regional voice when available, otherwise falls back to system default |
 | Offline speech-to-text pack | Added to first-run model download; physical-device transcription validation pending |
-| Guard firearm detector pack | Added to first-run model download; model artifact validation complete, native mobile inference bridge pending |
+| Guard firearm detector pack | Added to first-run model download; Android still-image TFLite bridge implemented, physical-device detector smoke test pending |
 | Case logging | Saved locally |
 | Data center sync | Confirmed after connectivity was available |
 | Cloud Gemini fallback | Completed successfully when online |

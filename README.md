@@ -29,7 +29,7 @@ When the models are downloaded, this runs with no internet at all. When they're 
 
 If a CHW encounters a threat in the field, Guard lets them capture photo or video evidence. The app analyzes it for armed individuals, visible weapons, armed convoys, or checkpoint situations. If a threat is confirmed, it attaches GPS coordinates, queues an SMS alert to saved coordinator numbers via Africa's Talking, logs the event locally, and attempts a Bluetooth mesh relay to other nearby SHIFA devices — so the alert can still propagate even without a cell signal.
 
-Guard also publishes and downloads a compact offline firearm detector (`.tflite`, 5.35 MB) for native on-device evidence screening integration. The current validated release gates alerts on visible firearms: `GUN` mAP50 is **0.725** against a 0.60 release target. Knife detection is treated as experimental and never triggers dispatch by itself.
+Guard also publishes and downloads a compact offline firearm detector (`.tflite`, 5.35 MB). On Android, still-image Guard evidence can run through a native TFLite bridge before cloud fallback. The current validated release gates alerts on visible firearms: `GUN` mAP50 is **0.725** against a 0.60 release target. Knife detection is treated as experimental and never triggers dispatch by itself.
 
 ### Outbreak Monitoring
 
@@ -149,7 +149,7 @@ Physical Android testing confirmed first-run model download, offline E2B analysi
 
 Offline STT — Whisper base — is part of the first-run setup. Voice recordings try offline transcription first. If that fails and there's no typed input, the app blocks silent analysis and asks the CHW to type or reconnect. No guessing.
 
-The Guard firearm detector is also part of the first-run offline pack. It is validated for firearm evidence screening; knife detection remains experimental until a better-balanced dataset is trained. The app still keeps Gemini Guard analysis as a fallback while the native image-detector bridge is completed.
+The Guard firearm detector is also part of the first-run offline pack. Android uses a native TFLite bridge for still-image firearm screening, then keeps Gemini Guard analysis as fallback for richer visual context and video evidence. iOS native detector inference is still a separate bridge task. Knife detection remains experimental until a better-balanced dataset is trained.
 
 ---
 
