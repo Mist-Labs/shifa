@@ -185,7 +185,10 @@ def main() -> None:
     try:
         from datasets import load_dataset
     except ImportError as exc:
-        raise SystemExit("Install ml/requirements-guard.txt before preparing the Guard dataset") from exc
+        raise SystemExit(
+            "Install ml/requirements-guard.txt before preparing the Guard dataset. "
+            f"Original import error: {exc}"
+        ) from exc
 
     dataset_name = env("SHIFA_GUARD_DATASET", DEFAULT_DATASET)
     out_dir = resolve_path(env("SHIFA_GUARD_DATA_DIR", "data/guard/weapon_detection"))
