@@ -4,6 +4,7 @@ import { DecisionValue, inferDecision, normalizeDecision } from './clinicalContr
 import { analyzeWithLiteRT } from './litertEngine';
 import { analyzeWithLlama } from './llamaEngine';
 import { localizeGuardrailReason, textPack } from './language';
+import { getClinicalModelStatus } from './modelManager';
 
 interface ClinicalEngineInput {
   symptomText: string;
@@ -88,15 +89,21 @@ export async function analyzeClinicalCase(input: ClinicalEngineInput): Promise<C
     );
   }
 
+  const localErrors: string[] = [];
+  const localStatus = await getClinicalModelStatus().catch(() => null);
   const localDecision = await analyzeWithLiteRT(input).catch((error) => {
-    console.warn('SHIFA LiteRT local inference unavailable:', error instanceof Error ? error.message : error);
+    const message = error instanceof Error ? error.message : String(error);
+    localErrors.push(`LiteRT: ${message}`);
+    console.warn('SHIFA LiteRT local inference unavailable:', message);
     return null;
   });
   if (localDecision) {
     decision = localDecision;
   } else {
     const ggufDecision = await analyzeWithLlama(input).catch((error) => {
-      console.warn('SHIFA GGUF local inference unavailable:', error instanceof Error ? error.message : error);
+      const message = error instanceof Error ? error.message : String(error);
+      localErrors.push(`GGUF: ${message}`);
+      console.warn('SHIFA GGUF local inference unavailable:', message);
       return null;
     });
     if (ggufDecision) {
@@ -110,6 +117,16 @@ export async function analyzeClinicalCase(input: ClinicalEngineInput): Promise<C
         decision.engineMode = 'protocol_fallback';
         decision.summary = `${decision.summary}. ${textPack(input.language).cloudFallbackNotice}`;
       }
+    } else if (!input.online && localStatus?.runtimeReady) {
+      throw new ShifaAIError(
+        'Downloaded offline model could not run',
+        [
+          'The offline model is stored on this device, but SHIFA could not run local inference.',
+          localErrors.length ? `Last local error: ${localErrors[localErrors.length - 1]}` : null,
+          'Restart the app and try again, or refresh the offline model in Settings. SHIFA did not substitute protocol rules for a failed local model.',
+        ].filter(Boolean).join(' '),
+        true
+      );
     } else {
       decision = evaluateFieldProtocol(input);
       decision.engineMode = 'protocol_fallback';

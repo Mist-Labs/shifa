@@ -22,6 +22,7 @@ export interface LiteRTRuntimeInfo {
 }
 
 const nativeLiteRT = NativeModules.ShifaLiteRT as ShifaLiteRTNativeModule | undefined;
+const LOCAL_MAX_OUTPUT_TOKENS = 768;
 
 export function isLiteRTNativeAvailable(): boolean {
   return Boolean(nativeLiteRT);
@@ -45,14 +46,26 @@ export async function analyzeWithLiteRT(input: {
   const modelPath = await getLiteRTModelPath();
   if (!modelPath) return null;
 
-  await nativeLiteRT.init(modelPath, 'GPU', 512);
-  const raw = await nativeLiteRT.generate(buildClinicalPrompt(input));
+  const prompt = buildClinicalPrompt(input);
+  const raw = await generateWithFallbackBackend(modelPath, prompt);
   const parsed = extractJsonObject(raw);
   const decision = normalizeCloudClinicalDecision(parsed);
   return {
     ...decision,
     engineMode: 'local_model',
   };
+}
+
+async function generateWithFallbackBackend(modelPath: string, prompt: string): Promise<string> {
+  try {
+    await nativeLiteRT!.init(modelPath, 'GPU', LOCAL_MAX_OUTPUT_TOKENS);
+    return await nativeLiteRT!.generate(prompt);
+  } catch (gpuError) {
+    console.warn('SHIFA LiteRT GPU inference failed, retrying CPU:', gpuError instanceof Error ? gpuError.message : gpuError);
+    await nativeLiteRT!.close().catch(() => undefined);
+    await nativeLiteRT!.init(modelPath, 'CPU', LOCAL_MAX_OUTPUT_TOKENS);
+    return nativeLiteRT!.generate(prompt);
+  }
 }
 
 function buildClinicalPrompt(input: {
