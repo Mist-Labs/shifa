@@ -7,8 +7,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from finetune.common import env, env_float, env_int, resolve_path, write_json
 
-# RPG removed — zero examples in all splits, would only suppress mAP
-CLASS_NAMES = ["HANDGUN", "RIFLE", "SHOTGUN", "HEAVY_WEAPON", "KNIFE", "PERSON"]
+CLASS_NAMES = ["GUN", "KNIFE", "PERSON"]
 
 
 def _patch_raytune() -> None:
@@ -68,10 +67,20 @@ def main() -> None:
 
     model = YOLO(str(target))
     export_format = env("SHIFA_GUARD_EXPORT_FORMAT", "tflite")
+
+    # onnxscript is required by the torch 2.10+ ONNX export path used by
+    # Ultralytics before TFLite conversion. Keep it in requirements too; this
+    # import check gives a clearer Kaggle error if the environment is stale.
+    try:
+        import onnxscript  # noqa: F401
+    except ImportError as exc:
+        raise SystemExit("Missing onnxscript. Run: pip install -r requirements-guard.txt") from exc
+
     exported = model.export(
         format=export_format,
         imgsz=env_int("SHIFA_GUARD_IMAGE_SIZE", 640),
         int8=env("SHIFA_GUARD_INT8", "1") == "1",
+        data=str(data_yaml),
     )
     exported_path = Path(exported)
     exported_target = output_dir / "shifa-guard-weapon-detector.tflite"

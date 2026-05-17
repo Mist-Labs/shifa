@@ -7,9 +7,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from finetune.common import env, env_float, resolve_path, write_json
 
-# RPG removed — zero examples in all splits, would only suppress mAP
-CLASS_NAMES = ["HANDGUN", "RIFLE", "SHOTGUN", "HEAVY_WEAPON", "KNIFE", "PERSON"]
-WEAPON_CLASSES = ["HANDGUN", "RIFLE", "SHOTGUN", "HEAVY_WEAPON", "KNIFE"]
+CLASS_NAMES = ["GUN", "KNIFE", "PERSON"]
+WEAPON_CLASSES = ["GUN", "KNIFE"]
 
 
 def main() -> None:

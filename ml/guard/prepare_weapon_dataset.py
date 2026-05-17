@@ -12,16 +12,22 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from finetune.common import env, resolve_path, write_json
 
 
-DEFAULT_DATASET = "Subh775/WeaponDetection"
+DEFAULT_DATASET = "Subh775/WeaponDetection_Grouped"
 
-# RPG removed — zero examples in all splits, would only suppress mAP
-CLASS_NAMES = ["HANDGUN", "RIFLE", "SHOTGUN", "HEAVY_WEAPON", "KNIFE", "PERSON"]
+# Grouped detector classes. Gun subtype labels are intentionally collapsed
+# because the original split was too sparse/noisy for reliable subtype training.
+CLASS_NAMES = ["GUN", "KNIFE", "PERSON"]
 
-# Integer category IDs for Subh775/WeaponDetection — 29 classes, 0-indexed.
-# Source: https://huggingface.co/datasets/Subh775/WeaponDetection (Classes section)
-# The HuggingFace feature schema carries no ClassLabel names for this dataset,
-# so we hardcode the mapping here.
+# Integer category IDs for Subh775/WeaponDetection_Grouped when the HuggingFace
+# feature schema does not expose ClassLabel names. The old 29-class mapping is
+# also tolerated below so either dataset can still be normalized.
 DATASET_INT_TO_LABEL: dict[int, str] = {
+    0: "GUN",
+    1: "KNIFE",
+    2: "PERSON",
+}
+
+LEGACY_DATASET_INT_TO_LABEL: dict[int, str] = {
     0:  "weapons",
     1:  "Aggressor",
     2:  "Blood",
@@ -43,7 +49,7 @@ DATASET_INT_TO_LABEL: dict[int, str] = {
     18: "guns",
     19: "handgun",
     20: "heavyweapon",
-    21: "larga",       # Spanish/Portuguese "long" (arma larga = long gun) → RIFLE
+    21: "larga",       # Spanish/Portuguese "long" (arma larga = long gun)
     22: "person",
     23: "pistol",
     24: "pistols",
@@ -54,22 +60,26 @@ DATASET_INT_TO_LABEL: dict[int, str] = {
 }
 
 LABEL_MAP = {
-    "guns": "HANDGUN",
-    "guns perspective": "HANDGUN",
-    "hand pistol": "HANDGUN",
-    "handgun": "HANDGUN",
-    "pistol": "HANDGUN",
-    "pistols": "HANDGUN",
-    "rifle": "RIFLE",
-    "long guns": "RIFLE",
-    "larga": "RIFLE",           # arma larga = long gun
-    "shotgun": "SHOTGUN",
-    "heavy gun": "HEAVY_WEAPON",
-    "heavygun": "HEAVY_WEAPON",
-    "heavyweapon": "HEAVY_WEAPON",
-    "weapon": "HEAVY_WEAPON",
-    "weapons": "HEAVY_WEAPON",
-    # rpg / rpg-7 removed — no examples in dataset
+    "gun": "GUN",
+    "guns": "GUN",
+    "firearm": "GUN",
+    "firearms": "GUN",
+    "guns perspective": "GUN",
+    "hand pistol": "GUN",
+    "handgun": "GUN",
+    "pistol": "GUN",
+    "pistols": "GUN",
+    "rifle": "GUN",
+    "long guns": "GUN",
+    "larga": "GUN",           # arma larga = long gun
+    "shotgun": "GUN",
+    "heavy gun": "GUN",
+    "heavygun": "GUN",
+    "heavyweapon": "GUN",
+    "weapon": "GUN",
+    "weapons": "GUN",
+    "rpg": "GUN",
+    "rpg 7": "GUN",
     "knife": "KNIFE",
     "knife deploy": "KNIFE",
     "knife weapon": "KNIFE",
@@ -135,6 +145,8 @@ def export_split(dataset: Any, split: str, out_dir: Path, label_names: list[str]
                     label = label_names[category]
                 elif category in DATASET_INT_TO_LABEL:
                     label = DATASET_INT_TO_LABEL[category]
+                elif category in LEGACY_DATASET_INT_TO_LABEL:
+                    label = LEGACY_DATASET_INT_TO_LABEL[category]
                 else:
                     unmapped.add(f"<int:{category}>")
                     continue
@@ -188,7 +200,7 @@ def main() -> None:
     if label_names:
         print(f"Schema-derived category names ({len(label_names)}): {label_names}")
     else:
-        print(f"No ClassLabel schema found — using hardcoded DATASET_INT_TO_LABEL ({len(DATASET_INT_TO_LABEL)} entries)")
+        print(f"No ClassLabel schema found — using grouped integer labels ({len(DATASET_INT_TO_LABEL)} entries)")
 
     manifest: dict[str, Any] = {
         "dataset": dataset_name,

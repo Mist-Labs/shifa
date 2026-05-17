@@ -83,7 +83,7 @@ pip install -r requirements-guard.txt
 bash scripts/run_guard_training.sh
 ```
 
-The Guard pipeline downloads the configured Hugging Face weapon dataset, exports YOLO-format `HANDGUN`, `RIFLE`, `SHOTGUN`, `HEAVY_WEAPON`, `RPG`, `KNIFE`, and `PERSON` labels where those source labels exist, trains a small YOLO detector, exports a TFLite model, validates against the test split, then uploads:
+The Guard pipeline downloads the configured Hugging Face grouped weapon dataset, exports YOLO-format `GUN`, `KNIFE`, and `PERSON` labels, trains a small YOLO detector, exports an INT8 TFLite model, validates against the test split, then uploads:
 
 - `guard/shifa-guard-weapon-detector.pt`
 - `guard/shifa-guard-weapon-detector.tflite`
