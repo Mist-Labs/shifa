@@ -47,8 +47,8 @@ export async function analyzeWithLiteRT(input: {
   if (!modelPath) return null;
 
   const prompt = buildClinicalPrompt(input);
-  const raw = await generateWithFallbackBackend(modelPath, prompt);
-  const parsed = extractJsonObject(raw);
+  const raw = await generateWithFallbackBackend(modelPath, prompt, input);
+  const parsed = parseModelJson(raw);
   const decision = normalizeCloudClinicalDecision(parsed);
   return {
     ...decision,
@@ -56,16 +56,36 @@ export async function analyzeWithLiteRT(input: {
   };
 }
 
-async function generateWithFallbackBackend(modelPath: string, prompt: string): Promise<string> {
-  try {
-    await nativeLiteRT!.init(modelPath, 'GPU', LOCAL_MAX_OUTPUT_TOKENS);
-    return await nativeLiteRT!.generate(prompt);
-  } catch (gpuError) {
-    console.warn('SHIFA LiteRT GPU inference failed, retrying CPU:', gpuError instanceof Error ? gpuError.message : gpuError);
+async function generateWithFallbackBackend(
+  modelPath: string,
+  prompt: string,
+  input: Parameters<typeof buildClinicalPrompt>[0]
+): Promise<string> {
+  const errors: string[] = [];
+  for (const backend of ['GPU', 'CPU'] as LiteRTBackend[]) {
     await nativeLiteRT!.close().catch(() => undefined);
-    await nativeLiteRT!.init(modelPath, 'CPU', LOCAL_MAX_OUTPUT_TOKENS);
-    return nativeLiteRT!.generate(prompt);
+    try {
+      await nativeLiteRT!.init(modelPath, backend, LOCAL_MAX_OUTPUT_TOKENS);
+      const raw = await nativeLiteRT!.generate(prompt);
+      parseModelJson(raw);
+      return raw;
+    } catch (firstError) {
+      errors.push(`${backend}: ${firstError instanceof Error ? firstError.message : String(firstError)}`);
+      console.warn(`SHIFA LiteRT ${backend} inference attempt failed:`, firstError instanceof Error ? firstError.message : firstError);
+      try {
+        const repairRaw = await nativeLiteRT!.generate(buildJsonRepairPrompt(input));
+        parseModelJson(repairRaw);
+        return repairRaw;
+      } catch (repairError) {
+        errors.push(`${backend} repair: ${repairError instanceof Error ? repairError.message : String(repairError)}`);
+      }
+    }
   }
+  throw new Error(`LiteRT could not produce a valid clinical JSON response after GPU and CPU attempts. ${errors.join(' | ')}`);
+}
+
+function parseModelJson(raw: string): Record<string, unknown> {
+  return extractJsonObject(raw);
 }
 
 function buildClinicalPrompt(input: {
@@ -98,6 +118,26 @@ function buildClinicalPrompt(input: {
     '<end_of_turn>',
     '<start_of_turn>user',
     `${fieldContext}\n${input.symptomText}`.trim(),
+    '<end_of_turn>',
+    '<start_of_turn>model',
+  ].join('\n');
+}
+
+function buildJsonRepairPrompt(input: Parameters<typeof buildClinicalPrompt>[0]): string {
+  const languageName = promptLanguageName(input.language);
+  return [
+    '<start_of_turn>user',
+    'Return one compact JSON object only. No markdown. No explanation.',
+    'Required keys: decision, primary_diagnosis, confidence, treatment_protocol, referral, monitoring, danger_signs, reasoning_trace, voice_response.',
+    'Valid decision values: TREAT, REFER_URGENT, REFER_ROUTINE.',
+    `Language for user-facing strings: ${languageName}.`,
+    `Case: ${[
+      input.ageMonths !== undefined ? `Age months ${input.ageMonths}` : '',
+      input.weightKg !== undefined ? `Weight kg ${input.weightKg}` : '',
+      input.muacCm !== undefined ? `MUAC ${input.muacCm}cm` : '',
+      input.bilateralEdema ? 'bilateral edema yes' : 'bilateral edema no',
+      input.symptomText,
+    ].filter(Boolean).join('; ')}`,
     '<end_of_turn>',
     '<start_of_turn>model',
   ].join('\n');

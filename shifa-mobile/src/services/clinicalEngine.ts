@@ -118,15 +118,10 @@ export async function analyzeClinicalCase(input: ClinicalEngineInput): Promise<C
         decision.summary = `${decision.summary}. ${textPack(input.language).cloudFallbackNotice}`;
       }
     } else if (!input.online && localStatus?.runtimeReady) {
-      throw new ShifaAIError(
-        'Downloaded offline model could not run',
-        [
-          'The offline model is stored on this device, but SHIFA could not run local inference.',
-          localErrors.length ? `Last local error: ${localErrors[localErrors.length - 1]}` : null,
-          'Restart the app and try again, or refresh the offline model in Settings. SHIFA did not substitute protocol rules for a failed local model.',
-        ].filter(Boolean).join(' '),
-        true
-      );
+      decision = evaluateFieldProtocol(input);
+      decision.engineMode = 'protocol_fallback';
+      decision.summary = withProtocolFallbackNotice(decision.summary, input.language);
+      decision.voiceResponse = withProtocolFallbackNotice(decision.voiceResponse ?? decision.summary, input.language);
     } else {
       decision = evaluateFieldProtocol(input);
       decision.engineMode = 'protocol_fallback';
@@ -134,6 +129,30 @@ export async function analyzeClinicalCase(input: ClinicalEngineInput): Promise<C
   }
 
   return applyClinicalSafetyLayer(decision, input);
+}
+
+function withProtocolFallbackNotice(text: string, language: string): string {
+  const fallbackNotice = protocolFallbackNotice(language);
+  return text.includes(fallbackNotice) ? text : `${fallbackNotice} ${text}`;
+}
+
+function protocolFallbackNotice(language: string): string {
+  switch (language) {
+    case 'fr':
+      return "Le modele hors ligne n'a pas pu demarrer; SHIFA utilise la liste de securite du protocole.";
+    case 'rw':
+      return 'Modeli yo kuri telefoni ntiyabashije gukora; SHIFA irakoresha amabwiriza ya protokole yumutekano.';
+    case 'so':
+      return 'Moodalkii offline-ka ma bilaaban; SHIFA waxay isticmaaleysaa xeerarka badbaadada ee hab-maamuuska.';
+    case 'ha':
+      return 'Samfurin offline bai fara aiki ba; SHIFA na amfani da dokokin kariya na protokol.';
+    case 'ln':
+      return 'Model offline ebimaki te; SHIFA ezali kosalela mibeko ya bokengi ya protocole.';
+    case 'ar':
+      return 'تعذر تشغيل النموذج دون إنترنت؛ يستخدم SHIFA قواعد السلامة في البروتوكول.';
+    default:
+      return 'The offline AI model could not start, so SHIFA is using the safety protocol checklist.';
+  }
 }
 
 function applyClinicalSafetyLayer(decision: ClinicalDecision, input: ClinicalEngineInput): ClinicalDecision {
