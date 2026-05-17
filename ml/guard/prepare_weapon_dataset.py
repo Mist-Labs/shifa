@@ -13,7 +13,9 @@ from finetune.common import env, resolve_path, write_json
 
 
 DEFAULT_DATASET = "Subh775/WeaponDetection"
-CLASS_NAMES = ["HANDGUN", "RIFLE", "SHOTGUN", "HEAVY_WEAPON", "RPG", "KNIFE", "PERSON"]
+
+# RPG removed — zero examples in all splits, would only suppress mAP
+CLASS_NAMES = ["HANDGUN", "RIFLE", "SHOTGUN", "HEAVY_WEAPON", "KNIFE", "PERSON"]
 
 # Integer category IDs for Subh775/WeaponDetection — 29 classes, 0-indexed.
 # Source: https://huggingface.co/datasets/Subh775/WeaponDetection (Classes section)
@@ -67,8 +69,7 @@ LABEL_MAP = {
     "heavyweapon": "HEAVY_WEAPON",
     "weapon": "HEAVY_WEAPON",
     "weapons": "HEAVY_WEAPON",
-    "rpg": "RPG",
-    "rpg-7": "RPG",
+    # rpg / rpg-7 removed — no examples in dataset
     "knife": "KNIFE",
     "knife deploy": "KNIFE",
     "knife weapon": "KNIFE",

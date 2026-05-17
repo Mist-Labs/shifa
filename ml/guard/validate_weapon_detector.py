@@ -7,8 +7,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from finetune.common import env, env_float, resolve_path, write_json
 
-CLASS_NAMES = ["HANDGUN", "RIFLE", "SHOTGUN", "HEAVY_WEAPON", "RPG", "KNIFE", "PERSON"]
-WEAPON_CLASSES = ["HANDGUN", "RIFLE", "SHOTGUN", "HEAVY_WEAPON", "RPG", "KNIFE"]
+# RPG removed — zero examples in all splits, would only suppress mAP
+CLASS_NAMES = ["HANDGUN", "RIFLE", "SHOTGUN", "HEAVY_WEAPON", "KNIFE", "PERSON"]
+WEAPON_CLASSES = ["HANDGUN", "RIFLE", "SHOTGUN", "HEAVY_WEAPON", "KNIFE"]
 
 
 def main() -> None:
@@ -68,7 +69,7 @@ def main() -> None:
         },
         "passed_targets": {
             "overall_map50": float(box.map50) >= min_overall_map50,
-            "weapon_map50": weapon_map50 >= min_weapon_map50,   # was missing
+            "weapon_map50": weapon_map50 >= min_weapon_map50,
         },
     }
     write_json(report_path, result)

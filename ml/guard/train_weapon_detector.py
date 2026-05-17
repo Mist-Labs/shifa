@@ -7,6 +7,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from finetune.common import env, env_float, env_int, resolve_path, write_json
 
+# RPG removed — zero examples in all splits, would only suppress mAP
+CLASS_NAMES = ["HANDGUN", "RIFLE", "SHOTGUN", "HEAVY_WEAPON", "KNIFE", "PERSON"]
+
 
 def _patch_raytune() -> None:
     """
@@ -51,8 +54,11 @@ def main() -> None:
         name=run_name,
         exist_ok=True,
         seed=env_int("SHIFA_SEED", 42),
-        conf=env_float("SHIFA_GUARD_VAL_CONF", 0.35),
         iou=env_float("SHIFA_GUARD_VAL_IOU", 0.5),
+        # conf intentionally omitted — YOLO uses 0.001 internally during training
+        # validation to sweep the full PR curve. Passing 0.35 here collapses
+        # P/R/mAP50 to 0 for all epochs because early predictions never reach
+        # that threshold. 0.35 is applied at inference time only (validate script).
     )
 
     best = Path(results.save_dir) / "weights" / "best.pt"
@@ -79,7 +85,7 @@ def main() -> None:
             "base_model": base_model,
             "best_pt": str(target),
             "exported_model": str(exported_target if exported_target.exists() else exported_path),
-            "classes": ["HANDGUN", "RIFLE", "SHOTGUN", "HEAVY_WEAPON", "RPG", "KNIFE", "PERSON"],
+            "classes": CLASS_NAMES,
         },
     )
     print(f"Guard detector trained: {target}")
