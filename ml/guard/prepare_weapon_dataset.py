@@ -103,13 +103,34 @@ def category_names(features: Any) -> list[str]:
     return list(getattr(category, "names", []))
 
 
-def yolo_bbox(bbox: list[float], width: int, height: int) -> tuple[float, float, float, float]:
+def yolo_bbox(bbox: list[float], width: int, height: int) -> tuple[float, float, float, float] | None:
     x, y, w, h = bbox
+    if width <= 0 or height <= 0 or w <= 0 or h <= 0:
+        return None
+
+    # Hugging Face object-detection datasets use COCO XYWH boxes. Some source
+    # annotations extend beyond the image bounds; clip in pixel space before
+    # normalizing so YOLO does not train on impossible boxes.
+    if max(x, y, w, h) <= 1.5:
+        x *= width
+        w *= width
+        y *= height
+        h *= height
+
+    x1 = max(0.0, x)
+    y1 = max(0.0, y)
+    x2 = min(float(width), x + w)
+    y2 = min(float(height), y + h)
+    clipped_w = x2 - x1
+    clipped_h = y2 - y1
+    if clipped_w <= 1.0 or clipped_h <= 1.0:
+        return None
+
     return (
-        (x + w / 2) / width,
-        (y + h / 2) / height,
-        w / width,
-        h / height,
+        (x1 + clipped_w / 2) / width,
+        (y1 + clipped_h / 2) / height,
+        clipped_w / width,
+        clipped_h / height,
     )
 
 
@@ -158,11 +179,10 @@ def export_split(dataset: Any, split: str, out_dir: Path, label_names: list[str]
                 unmapped.add(label)
                 continue
 
-            xc, yc, bw, bh = yolo_bbox([float(value) for value in bbox], width, height)
-            if bw <= 0 or bh <= 0:
+            converted = yolo_bbox([float(value) for value in bbox], width, height)
+            if converted is None:
                 continue
-            values = [max(0.0, min(1.0, value)) for value in (xc, yc, bw, bh)]
-            lines.append(f"{class_to_id[target_label]} " + " ".join(f"{value:.6f}" for value in values))
+            lines.append(f"{class_to_id[target_label]} " + " ".join(f"{value:.6f}" for value in converted))
             stats["class_counts"][target_label] += 1
 
         if not lines:
