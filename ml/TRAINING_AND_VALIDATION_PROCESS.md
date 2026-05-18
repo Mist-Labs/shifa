@@ -365,6 +365,8 @@ The first SHIFA E4B fine-tune proves clinical reasoning and offline-capable arch
 | Mid-range Android, 4-6GB RAM | Yes for tested 4GB phone with GGUF | GGUF completed offline analysis but can take several minutes |
 | Low-end Android, 3-4GB RAM / $50 class | Not yet validated | Storage and memory pressure still require careful testing before making claims |
 
+The 4GB Android result should be read carefully: the phone has 4GB physical RAM, but the SHIFA process does not receive that whole amount. Android, Google services, the JS/native runtime, model loader, tokenizer, runtime buffers, and generation cache all compete for memory. GGUF completed under those constraints; the current 3.1GB LiteRT-LM bundle still needs more real-device hardening before it should be the default on 4GB-class phones.
+
 For field deployment language, the accurate claim is:
 
 > SHIFA is designed for offline inference on mid-range and high-end Android devices, with an optimization roadmap for lower-cost phones.

@@ -47,7 +47,7 @@ Current backend rules use condition-specific DBSCAN windows: cholera/AWD cluster
 
 ## Try It
 
-**[Install the Android preview build](https://expo.dev/accounts/evans0075/projects/shifa-health/builds/c50041e3-9313-4ad0-9a9f-0681dd17cacb)**
+**[Install the Android preview build](https://expo.dev/accounts/evans0075/projects/shifa-health/builds/dc8daf6e-48f4-4e8e-9719-d262d4eab28e)**
 
 **[Open the live coordinator dashboard](https://shifa-dashboard-theta.vercel.app/)**
 
@@ -158,7 +158,7 @@ Acute watery diarrhea / cholera · Severe and moderate acute malnutrition · Neo
 
 ## Field Notes
 
-Physical Android testing confirmed first-run model download, offline E2B GGUF analysis, Kinyarwanda output, TTS playback, regional/local voice preference fallback, local case logging, and sync to the backend when connectivity returned. The Android field build now prefers GGUF because it completed on the tested 4GB phone; LiteRT-LM remains available as an accelerated artifact while runtime hardening continues.
+Physical Android testing confirmed first-run model download, offline E2B GGUF analysis, Kinyarwanda output, TTS playback, regional/local voice preference fallback, local case logging, and sync to the backend when connectivity returned. The Android field build now prefers GGUF because it completed on the tested 4GB phone. LiteRT-LM remains available as an accelerated artifact, but the current 3.1GB LiteRT-LM bundle can fall back on 4GB-class phones because Android does not leave the full device RAM available to the app once the OS, services, runtime buffers, tokenizer, and generation cache are loaded.
 
 Offline STT — Whisper base — is part of the first-run setup. Voice recordings try offline transcription first. If that fails and there's no typed input, the app blocks silent analysis and asks the CHW to type or reconnect. No guessing.
 

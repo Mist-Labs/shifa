@@ -154,7 +154,7 @@ Physical-device testing confirmed that the E2B GGUF runtime can load and complet
 | Data center sync | Confirmed after connectivity was available |
 | Cloud Gemini fallback | Completed successfully when online |
 
-Observed GGUF latency on the tested Android device was still high: a full offline clinical response took roughly 4 minutes, with local-language generation/translation adding additional time. This confirmed offline capability and is the current stable field path. The LiteRT-LM export is expected to be the faster mobile runtime path, but needs additional runtime-template hardening before it replaces GGUF in the default Android flow.
+Observed GGUF latency on the tested 4GB Android device was still high: a full offline clinical response took roughly 4 minutes, with local-language generation/translation adding additional time. This confirmed offline capability and is the current stable field path. The LiteRT-LM export is expected to be the faster mobile runtime path on devices with more memory headroom, but the current 3.1GB LiteRT-LM bundle can fall back on 4GB-class phones because Android does not leave the full device RAM available to the app once the OS, services, runtime buffers, tokenizer, and generation cache are loaded.
 
 After this test, the mobile runtime was tightened for faster no-retrain inference. The model weights, validation guardrails, clinical parser, and safety override logic were not changed. Only runtime generation settings were adjusted:
 
@@ -202,8 +202,8 @@ The most important safety result is shared across both models:
 
 - E2B is more schema-fragile than E4B. It sometimes emits malformed or truncated JSON, so the validator and mobile app use a robust parser plus deterministic guardrails.
 - E2B remains more conservative than E4B and can over-refer non-severe pneumonia/ARI cases.
-- Physical Android GGUF inference is functional but slow on the tested device. A full GGUF response can take several minutes, especially for local-language output.
-- E2B LiteRT-LM export succeeded after moving from Kaggle to Vast.ai A100/high-RAM infrastructure. Physical-device LiteRT testing still falls back in the current app integration, so GGUF remains the stable default until the LiteRT-LM prompt/template path is hardened.
+- Physical Android GGUF inference is functional but slow on the tested 4GB phone. A full GGUF response can take several minutes, especially for local-language output.
+- E2B LiteRT-LM export succeeded after moving from Kaggle to Vast.ai A100/high-RAM infrastructure. Physical-device LiteRT testing still falls back on the tested 4GB phone, likely due to memory headroom plus runtime prompt/template issues, so GGUF remains the stable default until the LiteRT-LM path is hardened on real devices.
 - Validation set size is still small. The next clinical milestone is a broader blinded validation set with more non-urgent respiratory, nutrition, malaria, and diarrhea cases.
 
 ## Evidence Artifacts
