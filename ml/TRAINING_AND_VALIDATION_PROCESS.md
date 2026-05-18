@@ -322,8 +322,8 @@ Do not use:
 2. **Artifact preservation** — `training_manifest.json`, validation metrics, runtime manifests, upload manifests, adapters, GGUF files, and the LiteRT-LM runtime are stored in R2 as the evidence trail.
 3. **Danger-sign canonicalization** — validation now uses clinical synonym and fuzzy matching so multilingual labels are scored against WHO/IMCI concepts instead of brittle exact strings.
 4. **Synthetic-label mismatches** — known moderate malnutrition / SAM conflicts were handled in validation guardrail logic and documented for future dataset cleanup.
-5. **LiteRT packaging** — fine-tuned E2B LiteRT-LM export succeeded on Vast.ai A100/high-RAM infrastructure, including the tokenizer export/package step required by MediaPipe `LlmInference`, and was uploaded to R2 as the primary mobile runtime artifact.
-6. **Android integration** — the custom app downloads the LiteRT-LM model on first launch, keeps GGUF as fallback, and applies the same deterministic WHO/IMCI guardrails before returning decisions.
+5. **LiteRT packaging** — fine-tuned E2B LiteRT-LM export succeeded on Vast.ai A100/high-RAM infrastructure, including the tokenizer export/package step, and was uploaded to R2 as the accelerated Android runtime artifact.
+6. **Android integration** — the custom app downloads the verified GGUF runtime on first launch, keeps LiteRT-LM available as an accelerated path under hardening, and applies the same deterministic WHO/IMCI guardrails before returning decisions.
 7. **Offline voice pipeline** — Whisper base STT is part of the first-run offline setup and converts recorded patient speech into editable symptom text before local clinical inference. TTS speaks the result in the selected CHW language, preferring installed regional/local device voices when available and falling back to the system default.
 8. **Guard firearm detector** — a separate YOLO11n detector was trained from the Roboflow YOLOv8 weapon dataset, exported to TFLite, validated with a firearm-specific release gate, uploaded to R2, added to the mobile first-run offline pack, and wired into Android still-image evidence analysis through a native TFLite bridge.
 
@@ -361,9 +361,9 @@ The first SHIFA E4B fine-tune proves clinical reasoning and offline-capable arch
 | Device class | Can run SHIFA locally? | Notes |
 |--------------|------------------------|-------|
 | T4 GPU, 15GB VRAM | Yes | Approximately 7-10s per inference during validation/inference experiments |
-| High-end Android, Snapdragon 8 Gen 3 / 12GB RAM | Yes | Prefer E2B LiteRT-LM; physical-device benchmark still required |
-| Mid-range Android, 4-6GB RAM | Expected for E2B LiteRT-LM, pending full benchmark | E2B LiteRT-LM is the primary target; GGUF fallback was functional but slow in physical testing |
-| Low-end Android, 3-4GB RAM / $50 class | Not yet validated | The 3.1GB LiteRT-LM artifact plus OS/app memory pressure requires careful testing before making claims |
+| High-end Android, Snapdragon 8 Gen 3 / 12GB RAM | Yes | GGUF is the stable field runtime; LiteRT-LM remains the accelerated path under hardening |
+| Mid-range Android, 4-6GB RAM | Yes for tested 4GB phone with GGUF | GGUF completed offline analysis but can take several minutes |
+| Low-end Android, 3-4GB RAM / $50 class | Not yet validated | Storage and memory pressure still require careful testing before making claims |
 
 For field deployment language, the accurate claim is:
 

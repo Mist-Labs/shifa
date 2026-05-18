@@ -93,22 +93,21 @@ Evidence file: `ml/reports/e2b_validation_metrics.json` on R2.
 
 | Artifact | Value |
 | --- | --- |
-| Primary runtime format | LiteRT-LM `.litertlm` |
-| Primary model | `models/shifa-gemma4-e2b-finetuned/shifa-gemma4-e2b-finetuned.litertlm` |
+| Stable field runtime format | GGUF Q4_K_M |
+| Stable field model | `models/shifa-gemma4-e2b-finetuned/shifa-gemma4-e2b-q4km.gguf` |
 | Export host | Vast.ai A100 SXM4 80GB |
 | Export result | Successful |
 | Packaged artifact size | 3,271,645,136 bytes, approximately 3.1 GB |
 | Export log size | 2.19 GiB quantized from 8.75 GiB per-layer embedder |
-| Primary runtime path | Native Kotlin LiteRT / MediaPipe `LlmInference` bridge |
-| Fallback runtime format | GGUF Q4_K_M |
-| Fallback model | `models/shifa-gemma4-e2b-finetuned/shifa-gemma4-e2b-q4km.gguf` |
-| Fallback size | 3,427,878,240 bytes, approximately 3.2 GB |
-| Fallback runtime path | `llama.rn` / llama.cpp bridge |
+| Stable runtime path | `llama.rn` / llama.cpp bridge |
+| LiteRT-LM accelerated artifact | `models/shifa-gemma4-e2b-finetuned/shifa-gemma4-e2b-finetuned.litertlm` |
+| LiteRT-LM size | 3,271,671,808 bytes, approximately 3.1 GB |
+| GGUF size | 3,427,878,240 bytes, approximately 3.2 GB |
 | Delivery model | First-run user-approved download from R2 |
 
-The E2B LiteRT-LM artifact is now the preferred offline Android runtime target. The E2B GGUF remains available as a fallback runtime. Neither multi-GB artifact is bundled into the APK because it would create an impractical install size. The mobile app asks the user to download the LiteRT-LM model on first launch and falls back to cloud/protocol mode if the user skips setup.
+The E2B GGUF runtime is the stable offline Android/iOS field path for the current build because it completed analysis on the tested 4GB Android phone. The E2B LiteRT-LM artifact remains published for the accelerated Android path, but physical-device testing showed that the current LiteRT-LM integration can fall back before producing valid clinical JSON. Neither multi-GB artifact is bundled into the APK because it would create an impractical install size. The mobile app asks the user to download the stable GGUF model on first launch and falls back to cloud/protocol mode if the user skips setup.
 
-The current R2 LiteRT-LM package was rebuilt with the tokenizer export step enabled, then republished over the earlier incomplete package. The live artifact reports `Content-Length: 3271671808` and includes the quantized weights plus bundled SentencePiece tokenizer metadata required by MediaPipe `LlmInference`.
+The current R2 LiteRT-LM package was rebuilt with the tokenizer export step enabled, then republished over the earlier incomplete package. The live artifact reports `Content-Length: 3271671808` and includes the quantized weights plus bundled SentencePiece tokenizer metadata required by the LiteRT-LM runtime.
 
 The first-run offline setup now also includes the multilingual Whisper base speech-to-text model (`ggml-base.bin`, approximately 142 MB). This allows recorded patient speech to be converted into editable symptom text before the local LiteRT/GGUF clinical model runs. The STT model does not alter the validated clinical model weights, validation guardrails, or scoring logic; it only improves offline voice input routing.
 
@@ -155,7 +154,7 @@ Physical-device testing confirmed that the E2B GGUF runtime can load and complet
 | Data center sync | Confirmed after connectivity was available |
 | Cloud Gemini fallback | Completed successfully when online |
 
-Observed GGUF latency on the tested Android device was still high: a full offline clinical response took roughly 4 minutes, with local-language generation/translation adding additional time. This confirmed offline capability, but not field-fast GGUF latency. The subsequent LiteRT-LM export is expected to be the faster mobile runtime path and still requires physical-device validation.
+Observed GGUF latency on the tested Android device was still high: a full offline clinical response took roughly 4 minutes, with local-language generation/translation adding additional time. This confirmed offline capability and is the current stable field path. The LiteRT-LM export is expected to be the faster mobile runtime path, but needs additional runtime-template hardening before it replaces GGUF in the default Android flow.
 
 After this test, the mobile runtime was tightened for faster no-retrain inference. The model weights, validation guardrails, clinical parser, and safety override logic were not changed. Only runtime generation settings were adjusted:
 
@@ -204,7 +203,7 @@ The most important safety result is shared across both models:
 - E2B is more schema-fragile than E4B. It sometimes emits malformed or truncated JSON, so the validator and mobile app use a robust parser plus deterministic guardrails.
 - E2B remains more conservative than E4B and can over-refer non-severe pneumonia/ARI cases.
 - Physical Android GGUF inference is functional but slow on the tested device. A full GGUF response can take several minutes, especially for local-language output.
-- E2B LiteRT-LM export succeeded after moving from Kaggle to Vast.ai A100/high-RAM infrastructure. Physical-device LiteRT validation is still required before replacing GGUF performance observations with LiteRT benchmark claims.
+- E2B LiteRT-LM export succeeded after moving from Kaggle to Vast.ai A100/high-RAM infrastructure. Physical-device LiteRT testing still falls back in the current app integration, so GGUF remains the stable default until the LiteRT-LM prompt/template path is hardened.
 - Validation set size is still small. The next clinical milestone is a broader blinded validation set with more non-urgent respiratory, nutrition, malaria, and diarrhea cases.
 
 ## Evidence Artifacts
@@ -216,8 +215,8 @@ The most important safety result is shared across both models:
 | `ml/reports/e2b_training_manifest.json` | E2B training evidence, currently on R2 |
 | `ml/reports/e2b_validation_metrics.json` | E2B validation evidence, currently on R2 |
 | `ml/reports/runtime_manifest.json` | E2B LiteRT-LM export evidence |
-| `models/shifa-gemma4-e2b-finetuned/shifa-gemma4-e2b-finetuned.litertlm` | E2B primary LiteRT-LM runtime model on R2 |
-| `models/shifa-gemma4-e2b-finetuned/shifa-gemma4-e2b-q4km.gguf` | E2B offline runtime model on R2 |
+| `models/shifa-gemma4-e2b-finetuned/shifa-gemma4-e2b-finetuned.litertlm` | E2B LiteRT-LM accelerated runtime model on R2 |
+| `models/shifa-gemma4-e2b-finetuned/shifa-gemma4-e2b-q4km.gguf` | E2B stable offline runtime model on R2 |
 | `models/shifa-gemma4-e2b-finetuned/shifa-gemma4-e2b-mmproj-f16.gguf` | Optional multimodal projector on R2 |
 | `guard/shifa-guard-weapon-detector.tflite` | Guard offline firearm detector on R2 |
 | `guard/validation_metrics.json` | Guard firearm detector validation evidence |

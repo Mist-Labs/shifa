@@ -100,7 +100,7 @@ CHW speaks or types symptoms
         ↓
 Whisper base STT transcribes offline
         ↓
-Fine-tuned Gemma 4 E2B (LiteRT) reasons over the case
+Fine-tuned Gemma 4 E2B reasons over the case locally
         ↓
 Deterministic WHO/IMCI guardrails apply
         ↓
@@ -115,7 +115,7 @@ Two layers of safety — the model handles reasoning and produces structured cli
 
 ## The Models
 
-Gemma 4 E2B's edge-oriented architecture and LiteRT-LM export path are what make offline Android clinical inference possible without a cloud dependency on a mid-range device.
+Gemma 4 E2B's edge-oriented architecture is what makes offline Android clinical inference possible without a cloud dependency on a mid-range device. The stable field build uses the verified GGUF runtime first, while the LiteRT-LM artifact remains published for the accelerated Android path as we finish runtime-template hardening.
 
 | | E2B | E4B |
 |--|-----|-----|
@@ -123,8 +123,8 @@ Gemma 4 E2B's edge-oriented architecture and LiteRT-LM export path are what make
 | Fine-tuning | QLoRA via Unsloth | QLoRA via Unsloth |
 | Training time | 56 min on Kaggle T4 | 103 min on Kaggle T4 |
 | Train loss | 0.1759 | 0.0599 |
-| Mobile runtime | LiteRT-LM `.litertlm` · 3.1 GB + Whisper base · 142 MB | GGUF Q4_K_M · 5.0 GB |
-| Target | Mid-range Android (6GB+ RAM) | High-end device / server |
+| Mobile runtime | GGUF Q4_K_M · 3.2 GB + Whisper base · 142 MB | GGUF Q4_K_M · 5.0 GB |
+| Target | Mid-range Android field runtime | High-end device / server |
 
 2,000 synthetic training cases across 6 languages, 5 countries, 11 clinical conditions. Before the final run, we cleaned out invalid decision aliases (`MONITOR`, `OBSERVE`, `REFER_NON_URGENT`) that had crept into the synthetic data — that single cleanup pushed E2B raw model accuracy from 73% to 83%.
 
@@ -140,9 +140,9 @@ Published weights and mobile runtime artifacts are hosted on Cloudflare R2:
 
 | Artifact | Link |
 | --- | --- |
-| E2B LiteRT-LM primary mobile runtime | [shifa-gemma4-e2b-finetuned.litertlm](https://pub-b2b135c13b0a406c8a4dc9c60eadb248.r2.dev/models/shifa-gemma4-e2b-finetuned/shifa-gemma4-e2b-finetuned.litertlm) |
+| E2B LiteRT-LM accelerated runtime artifact | [shifa-gemma4-e2b-finetuned.litertlm](https://pub-b2b135c13b0a406c8a4dc9c60eadb248.r2.dev/models/shifa-gemma4-e2b-finetuned/shifa-gemma4-e2b-finetuned.litertlm) |
 | E2B LoRA adapter weights | [adapter_model.safetensors](https://pub-b2b135c13b0a406c8a4dc9c60eadb248.r2.dev/models/shifa-gemma4-e2b-finetuned/adapter_model.safetensors) |
-| E2B GGUF fallback runtime | [shifa-gemma4-e2b-q4km.gguf](https://pub-b2b135c13b0a406c8a4dc9c60eadb248.r2.dev/models/shifa-gemma4-e2b-finetuned/shifa-gemma4-e2b-q4km.gguf) |
+| E2B GGUF stable Android/iOS runtime | [shifa-gemma4-e2b-q4km.gguf](https://pub-b2b135c13b0a406c8a4dc9c60eadb248.r2.dev/models/shifa-gemma4-e2b-finetuned/shifa-gemma4-e2b-q4km.gguf) |
 | E2B validation metrics | [validation_metrics.json](https://pub-b2b135c13b0a406c8a4dc9c60eadb248.r2.dev/validation_metrics.json) |
 | E2B training manifest | [training_manifest.json](https://pub-b2b135c13b0a406c8a4dc9c60eadb248.r2.dev/training_manifest.json) |
 | Guard firearm detector TFLite | [shifa-guard-weapon-detector.tflite](https://pub-b2b135c13b0a406c8a4dc9c60eadb248.r2.dev/guard/shifa-guard-weapon-detector.tflite) |
@@ -158,7 +158,7 @@ Acute watery diarrhea / cholera · Severe and moderate acute malnutrition · Neo
 
 ## Field Notes
 
-Physical Android testing confirmed first-run model download, offline E2B analysis, Kinyarwanda output, TTS playback, regional/local voice preference fallback, local case logging, and sync to the backend when connectivity returned. LiteRT-LM `.litertlm` is now the primary mobile runtime. GGUF stays as a documented fallback.
+Physical Android testing confirmed first-run model download, offline E2B GGUF analysis, Kinyarwanda output, TTS playback, regional/local voice preference fallback, local case logging, and sync to the backend when connectivity returned. The Android field build now prefers GGUF because it completed on the tested 4GB phone; LiteRT-LM remains available as an accelerated artifact while runtime hardening continues.
 
 Offline STT — Whisper base — is part of the first-run setup. Voice recordings try offline transcription first. If that fails and there's no typed input, the app blocks silent analysis and asks the CHW to type or reconnect. No guessing.
 

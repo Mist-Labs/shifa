@@ -91,24 +91,25 @@ export async function analyzeClinicalCase(input: ClinicalEngineInput): Promise<C
 
   const localErrors: string[] = [];
   const localStatus = await getClinicalModelStatus().catch(() => null);
-  const localDecision = await analyzeWithLiteRT(input).catch((error) => {
+  const tryGGUF = async () => analyzeWithLlama(input).catch((error) => {
+    const message = error instanceof Error ? error.message : String(error);
+    localErrors.push(`GGUF: ${message}`);
+    console.warn('SHIFA GGUF local inference unavailable:', message);
+    return null;
+  });
+  const tryLiteRT = async () => analyzeWithLiteRT(input).catch((error) => {
     const message = error instanceof Error ? error.message : String(error);
     localErrors.push(`LiteRT: ${message}`);
     console.warn('SHIFA LiteRT local inference unavailable:', message);
     return null;
   });
+  const localDecision = localStatus?.ggufRuntimeReady
+    ? (await tryGGUF()) ?? (await tryLiteRT())
+    : (await tryLiteRT()) ?? (await tryGGUF());
   if (localDecision) {
     decision = localDecision;
   } else {
-    const ggufDecision = await analyzeWithLlama(input).catch((error) => {
-      const message = error instanceof Error ? error.message : String(error);
-      localErrors.push(`GGUF: ${message}`);
-      console.warn('SHIFA GGUF local inference unavailable:', message);
-      return null;
-    });
-    if (ggufDecision) {
-      decision = ggufDecision;
-    } else if (input.online && isGeminiConfigured()) {
+    if (input.online && isGeminiConfigured()) {
       try {
         decision = await analyzeCloudClinicalCase(input);
       } catch (error) {

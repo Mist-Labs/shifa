@@ -5,11 +5,11 @@ import { envValue } from './runtimeEnv';
 const DEFAULT_MODEL_BASE_URL = 'https://pub-b2b135c13b0a406c8a4dc9c60eadb248.r2.dev';
 const MODEL_BASE_URL = envValue('EXPO_PUBLIC_SHIFA_MODEL_BASE_URL', 'shifaModelBaseUrl', DEFAULT_MODEL_BASE_URL).replace(/\/$/, '');
 const MODEL_DIR = `${FileSystem.documentDirectory ?? ''}models/shifa-gemma4-e2b-finetuned/`;
-const MODEL_SETUP_MARKER = `${MODEL_DIR}.setup-dismissed`;
+const MODEL_SETUP_MARKER = `${MODEL_DIR}.setup-dismissed-gguf-v2`;
 
 type RuntimeKind = 'litert' | 'gguf' | 'stt' | 'guard';
 const SUPPORTED_RUNTIME_KINDS: RuntimeKind[] = Platform.OS === 'ios' ? ['gguf'] : ['litert', 'gguf'];
-const DEFAULT_RUNTIME_KIND: RuntimeKind = Platform.OS === 'ios' ? 'gguf' : 'litert';
+const DEFAULT_RUNTIME_KIND = 'gguf' as RuntimeKind;
 
 const MODEL_ARTIFACTS = [
   {
@@ -162,7 +162,7 @@ export async function getGuardDetectorModelPath(): Promise<string | null> {
 
 export async function shouldShowModelSetup(): Promise<boolean> {
   const status = await getClinicalModelStatus();
-  return status.configured && (!status.runtimeReady || !status.sttReady || !status.guardDetectorReady) && !status.setupDismissed;
+  return status.configured && (!status.ready || !status.sttReady || !status.guardDetectorReady) && !status.setupDismissed;
 }
 
 export async function dismissModelSetup(): Promise<void> {
