@@ -22,7 +22,7 @@ export interface LiteRTRuntimeInfo {
 }
 
 const nativeLiteRT = NativeModules.ShifaLiteRT as ShifaLiteRTNativeModule | undefined;
-const LOCAL_MAX_OUTPUT_TOKENS = 768;
+const LOCAL_MAX_CONTEXT_TOKENS = 4096;
 
 function toNativeFilePath(uri: string): string {
   if (!uri.startsWith('file://')) return uri;
@@ -84,7 +84,7 @@ async function initializeLiteRT(modelPath: string, backends: LiteRTBackend[]): P
         return current;
       }
       await nativeLiteRT!.close().catch(() => undefined);
-      return await nativeLiteRT!.init(modelPath, backend, LOCAL_MAX_OUTPUT_TOKENS);
+      return await nativeLiteRT!.init(modelPath, backend, LOCAL_MAX_CONTEXT_TOKENS);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       errors.push(`${backend}: ${message}`);
@@ -142,28 +142,26 @@ function buildClinicalPrompt(input: {
   ].filter(Boolean).join('\n');
   const languageName = promptLanguageName(input.language);
 
-  return [
-    '<start_of_turn>system',
-    'You are SHIFA, an offline clinical decision support assistant for trained community health workers.',
-    'Follow WHO IMCI protocols and the country protocol module exactly.',
-    'Respond only as compact valid JSON with: decision, primary_diagnosis, differential_diagnoses, confidence, treatment_protocol, referral, monitoring, danger_signs, reasoning_trace, voice_response.',
-    'Valid decisions are TREAT, REFER_URGENT, REFER_ROUTINE. Never output MONITOR.',
-    'Default to REFER_URGENT when danger signs are present, confidence is below 0.70, or age/weight needed for dosing is missing.',
-    'Keep output short: max 3 treatment steps, max 4 danger signs, max 2 monitoring instructions, one-sentence reasoning_trace, one-sentence voice_response.',
+  const userMessage = [
+    'SHIFA offline clinical triage.',
+    'Return compact valid JSON only. No markdown.',
+    'Keys: decision, primary_diagnosis, differential_diagnoses, confidence, treatment_protocol, referral, monitoring, danger_signs, reasoning_trace, voice_response.',
+    'Valid decision values: TREAT, REFER_URGENT, REFER_ROUTINE. Never output MONITOR.',
+    'Use WHO IMCI safety rules. Refer urgently for danger signs, low confidence, or missing dosing context.',
+    'Max 3 treatment steps, 4 danger signs, 2 monitoring items.',
     `Country: ${input.country}. CHW language: ${languageName} (${input.language}).`,
-    `Write every user-facing JSON string in ${languageName}: diagnosis, treatment, referral, danger signs, reasoning, and voice response. Keep only decision enum values in English.`,
-    '<end_of_turn>',
-    '<start_of_turn>user',
-    `${fieldContext}\n${input.symptomText}`.trim(),
-    '<end_of_turn>',
-    '<start_of_turn>model',
+    `Write user-facing JSON strings in ${languageName}; keep decision enum in English.`,
+    'Case:',
+    `${fieldContext}\nSymptoms: ${input.symptomText}`.trim(),
+    'JSON:',
   ].join('\n');
+
+  return `<start_of_turn>user\n${userMessage}<end_of_turn>\n<start_of_turn>model\n`;
 }
 
 function buildJsonRepairPrompt(input: Parameters<typeof buildClinicalPrompt>[0]): string {
   const languageName = promptLanguageName(input.language);
-  return [
-    '<start_of_turn>user',
+  const userMessage = [
     'Return one compact JSON object only. No markdown. No explanation.',
     'Required keys: decision, primary_diagnosis, confidence, treatment_protocol, referral, monitoring, danger_signs, reasoning_trace, voice_response.',
     'Valid decision values: TREAT, REFER_URGENT, REFER_ROUTINE.',
@@ -175,7 +173,7 @@ function buildJsonRepairPrompt(input: Parameters<typeof buildClinicalPrompt>[0])
       input.bilateralEdema ? 'bilateral edema yes' : 'bilateral edema no',
       input.symptomText,
     ].filter(Boolean).join('; ')}`,
-    '<end_of_turn>',
-    '<start_of_turn>model',
+    'JSON:',
   ].join('\n');
+  return `<start_of_turn>user\n${userMessage}<end_of_turn>\n<start_of_turn>model\n`;
 }

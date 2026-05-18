@@ -7,7 +7,12 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import java.io.File
-import java.util.Collections
+import java.lang.reflect.InvocationTargetException
+import java.lang.reflect.Proxy
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
+import org.json.JSONObject
 
 class ShifaLiteRTModule(private val reactContext: ReactApplicationContext) :
   ReactContextBaseJavaModule(reactContext) {
@@ -35,7 +40,8 @@ class ShifaLiteRTModule(private val reactContext: ReactApplicationContext) :
         activeBackend = normalizeBackend(backend)
         promise.resolve(runtimeInfo())
       } catch (error: Throwable) {
-        promise.reject("SHIFA_LITERT_INIT_FAILED", error.message, error)
+        val cause = rootCause(error)
+        promise.reject("SHIFA_LITERT_INIT_FAILED", cause.message ?: cause.toString(), cause)
       }
     }.start()
   }
@@ -49,13 +55,15 @@ class ShifaLiteRTModule(private val reactContext: ReactApplicationContext) :
     }
 
     Thread {
+      var session: AutoCloseable? = null
       try {
-        val conversation = createConversation(currentEngine)
-        val response = sendMessage(conversation, prompt)
-        promise.resolve(messageText(response))
-        conversation.close()
+        session = createSession(currentEngine)
+        promise.resolve(generateContentStream(session, prompt))
       } catch (error: Throwable) {
-        promise.reject("SHIFA_LITERT_GENERATE_FAILED", error.message, error)
+        val cause = rootCause(error)
+        promise.reject("SHIFA_LITERT_GENERATE_FAILED", cause.message ?: cause.toString(), cause)
+      } finally {
+        session?.close()
       }
     }.start()
   }
@@ -72,7 +80,8 @@ class ShifaLiteRTModule(private val reactContext: ReactApplicationContext) :
       try {
         promise.resolve((text.length / 4).coerceAtLeast(1))
       } catch (error: Throwable) {
-        promise.reject("SHIFA_LITERT_TOKENIZE_FAILED", error.message, error)
+        val cause = rootCause(error)
+        promise.reject("SHIFA_LITERT_TOKENIZE_FAILED", cause.message ?: cause.toString(), cause)
       }
     }.start()
   }
@@ -95,9 +104,13 @@ class ShifaLiteRTModule(private val reactContext: ReactApplicationContext) :
       activeModelPath = null
       promise.resolve(true)
     } catch (error: Throwable) {
-      promise.reject("SHIFA_LITERT_CLOSE_FAILED", error.message, error)
+      val cause = rootCause(error)
+      promise.reject("SHIFA_LITERT_CLOSE_FAILED", cause.message ?: cause.toString(), cause)
     }
   }
+
+  private fun rootCause(error: Throwable): Throwable =
+    if (error is InvocationTargetException && error.targetException != null) error.targetException else error
 
   private fun runtimeInfo(): WritableMap =
     Arguments.createMap().apply {
@@ -150,32 +163,100 @@ class ShifaLiteRTModule(private val reactContext: ReactApplicationContext) :
     }
   }
 
-  private fun createConversation(currentEngine: Any): AutoCloseable {
-    val conversationConfigClass = Class.forName("com.google.ai.edge.litertlm.ConversationConfig")
-    val config = conversationConfigClass.getConstructor().newInstance()
+  private fun createSession(currentEngine: Any): AutoCloseable {
+    val sessionConfigClass = Class.forName("com.google.ai.edge.litertlm.SessionConfig")
+    val config = sessionConfigClass.getConstructor().newInstance()
     return currentEngine.javaClass
-      .getMethod("createConversation", conversationConfigClass)
+      .getMethod("createSession", sessionConfigClass)
       .invoke(currentEngine, config) as AutoCloseable
   }
 
-  private fun sendMessage(conversation: AutoCloseable, prompt: String): Any =
-    conversation.javaClass
-      .getMethod("sendMessage", String::class.java, Map::class.java)
-      .invoke(conversation, prompt, Collections.emptyMap<String, Any>())
-      ?: throw IllegalStateException("LiteRT-LM returned an empty response.")
-
-  @Suppress("UNCHECKED_CAST")
-  private fun messageText(message: Any): String {
-    val contents = message.javaClass.getMethod("getContents").invoke(message)
-    val contentItems = contents.javaClass.getMethod("getContents").invoke(contents) as List<Any>
-    return contentItems.joinToString(separator = "") { item ->
-      runCatching { item.javaClass.getMethod("getText").invoke(item) as? String }
-        .getOrNull()
-        .orEmpty()
+  private fun generateContentStream(session: AutoCloseable, prompt: String): String {
+    val inputTextClass = Class.forName("com.google.ai.edge.litertlm.InputData\$Text")
+    val callbackClass = Class.forName("com.google.ai.edge.litertlm.ResponseCallback")
+    val input = inputTextClass.getConstructor(String::class.java).newInstance(prompt)
+    val inputs = listOf(input)
+    val text = StringBuilder()
+    val finalJson = AtomicReference<String?>(null)
+    val error = AtomicReference<Throwable?>(null)
+    val done = CountDownLatch(1)
+    var tokenCount = 0
+    val callback = Proxy.newProxyInstance(
+      callbackClass.classLoader,
+      arrayOf(callbackClass)
+    ) { _, method, args ->
+      when (method.name) {
+        "onNext" -> {
+          text.append(args?.firstOrNull() as? String ?: "")
+          tokenCount += 1
+          val parsed = parseCompleteJson(text)
+          if (parsed != null) {
+            finalJson.set(parsed)
+            runCatching { session.javaClass.getMethod("cancelProcess").invoke(session) }
+            done.countDown()
+          } else if (tokenCount >= MAX_RESPONSE_TOKENS) {
+            runCatching { session.javaClass.getMethod("cancelProcess").invoke(session) }
+            done.countDown()
+          }
+        }
+        "onDone" -> done.countDown()
+        "onError" -> {
+          error.set(args?.firstOrNull() as? Throwable ?: IllegalStateException("LiteRT-LM stream failed."))
+          done.countDown()
+        }
+      }
+      null
     }
+    session.javaClass
+      .getMethod("generateContentStream", List::class.java, callbackClass)
+      .invoke(session, inputs, callback)
+    if (!done.await(120, TimeUnit.SECONDS)) {
+      runCatching { session.javaClass.getMethod("cancelProcess").invoke(session) }
+      throw IllegalStateException("LiteRT-LM generation timed out before producing clinical JSON.")
+    }
+    finalJson.get()?.let { return it }
+    error.get()?.let { throw it }
+    throw IllegalStateException("LiteRT-LM stopped before producing valid clinical JSON.")
+  }
+
+  private fun parseCompleteJson(text: CharSequence): String? {
+    val start = text.indexOf('{')
+    if (start < 0) return null
+    var depth = 0
+    var inString = false
+    var escaped = false
+    for (index in start until text.length) {
+      val char = text[index]
+      if (escaped) {
+        escaped = false
+        continue
+      }
+      if (char == '\\' && inString) {
+        escaped = true
+        continue
+      }
+      if (char == '"') {
+        inString = !inString
+        continue
+      }
+      if (inString) continue
+      if (char == '{') depth += 1
+      if (char == '}') {
+        depth -= 1
+        if (depth == 0) {
+          val candidate = text.subSequence(start, index + 1).toString()
+          return runCatching {
+            JSONObject(candidate)
+            candidate
+          }.getOrNull()
+        }
+      }
+    }
+    return null
   }
 
   companion object {
     const val NAME = "ShifaLiteRT"
+    private const val MAX_RESPONSE_TOKENS = 512
   }
 }
