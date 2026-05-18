@@ -1,5 +1,7 @@
 package org.mistlabs.shifa
 
+import android.app.ActivityManager
+import android.content.Context
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.WritableMap
 import com.facebook.react.bridge.Arguments
@@ -27,6 +29,15 @@ class ShifaLiteRTModule(private val reactContext: ReactApplicationContext) :
   fun init(modelPath: String, backend: String, maxTokens: Int, promise: Promise) {
     Thread {
       try {
+        val memoryInfo = deviceMemoryInfo()
+        if (memoryInfo.totalMem in 1 until MIN_RECOMMENDED_RAM_BYTES) {
+          promise.reject(
+            "SHIFA_LITERT_LOW_MEMORY",
+            "This device has ${formatGb(memoryInfo.totalMem)} RAM available to Android. Offline AI needs about ${formatGb(MIN_RECOMMENDED_RAM_BYTES)} RAM, so SHIFA will use the safety protocol checklist."
+          )
+          return@Thread
+        }
+
         val file = File(modelPath)
         if (!file.exists() || !file.canRead()) {
           promise.reject("SHIFA_LITERT_MODEL_MISSING", "LiteRT model file is not readable: $modelPath")
@@ -94,6 +105,20 @@ class ShifaLiteRTModule(private val reactContext: ReactApplicationContext) :
   @ReactMethod
   fun getRuntimeInfo(promise: Promise) {
     promise.resolve(runtimeInfo())
+  }
+
+  @ReactMethod
+  fun getDeviceMemoryInfo(promise: Promise) {
+    val info = deviceMemoryInfo()
+    promise.resolve(
+      Arguments.createMap().apply {
+        putDouble("totalBytes", info.totalMem.toDouble())
+        putDouble("availableBytes", info.availMem.toDouble())
+        putBoolean("lowMemory", info.lowMemory)
+        putBoolean("meetsRecommendedMemory", info.totalMem >= MIN_RECOMMENDED_RAM_BYTES)
+        putDouble("recommendedBytes", MIN_RECOMMENDED_RAM_BYTES.toDouble())
+      }
+    )
   }
 
   @ReactMethod
@@ -165,7 +190,16 @@ class ShifaLiteRTModule(private val reactContext: ReactApplicationContext) :
 
   private fun createSession(currentEngine: Any): AutoCloseable {
     val sessionConfigClass = Class.forName("com.google.ai.edge.litertlm.SessionConfig")
-    val config = sessionConfigClass.getConstructor().newInstance()
+    val samplerConfigClass = Class.forName("com.google.ai.edge.litertlm.SamplerConfig")
+    val samplerConfig = samplerConfigClass
+      .getConstructor(
+        Integer.TYPE,
+        java.lang.Double.TYPE,
+        java.lang.Double.TYPE,
+        Integer.TYPE,
+      )
+      .newInstance(1, 1.0, 0.0, 1)
+    val config = sessionConfigClass.getConstructor(samplerConfigClass).newInstance(samplerConfig)
     return currentEngine.javaClass
       .getMethod("createSession", sessionConfigClass)
       .invoke(currentEngine, config) as AutoCloseable
@@ -216,8 +250,20 @@ class ShifaLiteRTModule(private val reactContext: ReactApplicationContext) :
     }
     finalJson.get()?.let { return it }
     error.get()?.let { throw it }
-    throw IllegalStateException("LiteRT-LM stopped before producing valid clinical JSON.")
+    throw IllegalStateException(
+      "LiteRT-LM stopped before producing valid clinical JSON after $tokenCount chunks. Output preview: ${preview(text)}"
+    )
   }
+
+  private fun deviceMemoryInfo(): ActivityManager.MemoryInfo {
+    val activityManager = reactContext.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+    return ActivityManager.MemoryInfo().also { activityManager.getMemoryInfo(it) }
+  }
+
+  private fun formatGb(bytes: Long): String = "%.1f GB".format(bytes.toDouble() / 1_073_741_824.0)
+
+  private fun preview(text: CharSequence): String =
+    text.take(600).toString().replace(Regex("\\s+"), " ").trim()
 
   private fun parseCompleteJson(text: CharSequence): String? {
     val start = text.indexOf('{')
@@ -258,5 +304,6 @@ class ShifaLiteRTModule(private val reactContext: ReactApplicationContext) :
   companion object {
     const val NAME = "ShifaLiteRT"
     private const val MAX_RESPONSE_TOKENS = 512
+    private const val MIN_RECOMMENDED_RAM_BYTES = 5_905_580_032L
   }
 }

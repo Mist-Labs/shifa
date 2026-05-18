@@ -12,6 +12,7 @@ interface ShifaLiteRTNativeModule {
   sizeInTokens(text: string): Promise<number>;
   isReady(): Promise<boolean>;
   getRuntimeInfo(): Promise<LiteRTRuntimeInfo>;
+  getDeviceMemoryInfo?(): Promise<LiteRTDeviceMemoryInfo>;
   close(): Promise<boolean>;
 }
 
@@ -19,6 +20,14 @@ export interface LiteRTRuntimeInfo {
   ready: boolean;
   modelPath?: string;
   backend?: LiteRTBackend;
+}
+
+export interface LiteRTDeviceMemoryInfo {
+  totalBytes: number;
+  availableBytes: number;
+  lowMemory: boolean;
+  meetsRecommendedMemory: boolean;
+  recommendedBytes: number;
 }
 
 const nativeLiteRT = NativeModules.ShifaLiteRT as ShifaLiteRTNativeModule | undefined;
@@ -76,6 +85,13 @@ export async function analyzeWithLiteRT(input: {
 }
 
 async function initializeLiteRT(modelPath: string, backends: LiteRTBackend[]): Promise<LiteRTRuntimeInfo> {
+  const memoryInfo = await nativeLiteRT!.getDeviceMemoryInfo?.().catch(() => null);
+  if (memoryInfo && !memoryInfo.meetsRecommendedMemory) {
+    throw new Error(
+      `Device RAM is below the recommended offline AI requirement (${formatBytes(memoryInfo.totalBytes)} available to Android, ${formatBytes(memoryInfo.recommendedBytes)} recommended).`
+    );
+  }
+
   const errors: string[] = [];
   for (const backend of backends) {
     try {
@@ -92,6 +108,12 @@ async function initializeLiteRT(modelPath: string, backends: LiteRTBackend[]): P
     }
   }
   throw new Error(`LiteRT initialization failed. ${errors.join(' | ')}`);
+}
+
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return 'unknown';
+  const gb = bytes / 1024 / 1024 / 1024;
+  return `${gb.toFixed(1)}GB`;
 }
 
 async function generateWithFallbackBackend(
