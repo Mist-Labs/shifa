@@ -1,6 +1,6 @@
 # SHIFA Training and Validation Results
 
-Submission-facing summary of the Gemma 4 fine-tuning and validation runs for SHIFA, an offline-first clinical decision support assistant for community health workers in humanitarian crisis settings.
+Summary of the Gemma 4 fine-tuning and validation runs for SHIFA, an offline-first clinical decision support assistant for community health workers in humanitarian crisis settings.
 
 ## Models
 
@@ -154,7 +154,7 @@ Physical-device testing confirmed that the E2B GGUF runtime can load and complet
 | Data center sync | Confirmed after connectivity was available |
 | Cloud Gemini fallback | Completed successfully when online |
 
-Observed GGUF latency on the tested 4GB Android device was still high: a full offline clinical response took roughly 4 minutes, with local-language generation/translation adding additional time. This confirmed offline capability and is the current stable field path. The LiteRT-LM export is expected to be the faster mobile runtime path on devices with more memory headroom, but the current 3.1GB LiteRT-LM bundle can fall back on 4GB-class phones because Android does not leave the full device RAM available to the app once the OS, services, runtime buffers, tokenizer, and generation cache are loaded.
+Observed GGUF latency on the tested 4GB Android device was still high: a full offline clinical response took roughly 2-3 minutes, with local-language generation/translation adding additional time. This confirmed offline capability and is the current stable field path. The LiteRT-LM export is expected to be the faster mobile runtime path on devices with more memory headroom, but the current 3.1GB LiteRT-LM bundle can fall back on 4GB-class phones because Android does not leave the full device RAM available to the app once the OS, services, runtime buffers, tokenizer, and generation cache are loaded.
 
 After this test, the mobile runtime was tightened for faster no-retrain inference. The model weights, validation guardrails, clinical parser, and safety override logic were not changed. Only runtime generation settings were adjusted:
 

@@ -318,7 +318,7 @@ Do not use:
 
 ## 8. Current Completion State
 
-1. **Submission evidence** — guarded metrics, raw metrics, and guardrail explanations are captured in the reports and results documentation.
+1. **Validation evidence** — guarded metrics, raw metrics, and guardrail explanations are captured in the reports and results documentation.
 2. **Artifact preservation** — `training_manifest.json`, validation metrics, runtime manifests, upload manifests, adapters, GGUF files, and the LiteRT-LM runtime are stored in R2 as the evidence trail.
 3. **Danger-sign canonicalization** — validation now uses clinical synonym and fuzzy matching so multilingual labels are scored against WHO/IMCI concepts instead of brittle exact strings.
 4. **Synthetic-label mismatches** — known moderate malnutrition / SAM conflicts were handled in validation guardrail logic and documented for future dataset cleanup.
@@ -371,7 +371,7 @@ For field deployment language, the accurate claim is:
 
 > SHIFA is designed for offline inference on mid-range and high-end Android devices, with an optimization roadmap for lower-cost phones.
 
-Avoid claiming reliable inference on `$50` Android devices until a smaller model or streaming runtime is validated.
+No claims of reliable inference on `$50` Android devices until a smaller model or streaming runtime is validated.
 
 ### Deployment Strategy
 
@@ -390,4 +390,4 @@ After clinical validation, reduce runtime requirements through:
 - **Pruning:** remove low-importance weights where supported by the runtime stack.
 - **Router architecture:** route simple cases to E2B/small model and complex multimodal cases to E4B.
 
-The product story should emphasize the achieved milestone: a fine-tuned Gemma4 clinical adapter with multilingual humanitarian protocols, validated safety metrics, and a clear path toward smaller offline runtimes.
+The achieved product milestone: a fine-tuned Gemma4 clinical adapter with multilingual humanitarian protocols, validated safety metrics, and a clear path toward smaller offline runtimes.

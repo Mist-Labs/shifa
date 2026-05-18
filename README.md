@@ -72,8 +72,6 @@ npm install
 npx expo run:android
 ```
 
-Demo video coming before the submission deadline.
-
 ---
 
 ## Validation Results
@@ -158,7 +156,7 @@ Acute watery diarrhea / cholera · Severe and moderate acute malnutrition · Neo
 
 ## Field Notes
 
-Physical Android testing confirmed first-run model download, offline E2B GGUF analysis, Kinyarwanda output, TTS playback, regional/local voice preference fallback, local case logging, and sync to the backend when connectivity returned. The Android field build now prefers GGUF because it completed on the tested 4GB phone. LiteRT-LM remains available as an accelerated artifact, but the current 3.1GB LiteRT-LM bundle can fall back on 4GB-class phones because Android does not leave the full device RAM available to the app once the OS, services, runtime buffers, tokenizer, and generation cache are loaded.
+Physical Android testing confirmed first-run model download, offline E2B GGUF analysis, Kinyarwanda, French and Lingala outputs, TTS playback, regional/local voice preference fallback, local case logging, and sync to the backend when connectivity returned. The Android field build now prefers GGUF because it completed on the tested 4GB phone. LiteRT-LM remains available as an accelerated artifact, but the current 3.1GB LiteRT-LM bundle can fall back on 4GB-class phones because Android does not leave the full device RAM available to the app once the OS, services, runtime buffers, tokenizer, and generation cache are loaded.
 
 Offline STT — Whisper base — is part of the first-run setup. Voice recordings try offline transcription first. If that fails and there's no typed input, the app blocks silent analysis and asks the CHW to type or reconnect. No guessing.
 
