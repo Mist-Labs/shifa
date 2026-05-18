@@ -46,7 +46,7 @@ export async function preloadLiteRTRuntime(): Promise<LiteRTRuntimeInfo | null> 
   const modelPath = await getLiteRTModelPath();
   if (!modelPath) return null;
 
-  const runtime = await initializeLiteRT(toNativeFilePath(modelPath), ['GPU', 'CPU']);
+  const runtime = await initializeLiteRT(toNativeFilePath(modelPath), ['CPU']);
   console.log(`SHIFA LiteRT runtime initialized with ${runtime.backend ?? 'unknown'} backend`);
   return runtime;
 }
@@ -100,7 +100,7 @@ async function generateWithFallbackBackend(
   input: Parameters<typeof buildClinicalPrompt>[0]
 ): Promise<string> {
   const errors: string[] = [];
-  for (const backend of ['GPU', 'CPU'] as LiteRTBackend[]) {
+  for (const backend of ['CPU'] as LiteRTBackend[]) {
     try {
       await initializeLiteRT(modelPath, [backend]);
       const raw = await nativeLiteRT!.generate(prompt);
@@ -118,7 +118,7 @@ async function generateWithFallbackBackend(
       }
     }
   }
-  throw new Error(`LiteRT could not produce a valid clinical JSON response after GPU and CPU attempts. ${errors.join(' | ')}`);
+  throw new Error(`LiteRT could not produce a valid clinical JSON response with the local CPU runtime. ${errors.join(' | ')}`);
 }
 
 function parseModelJson(raw: string): Record<string, unknown> {
