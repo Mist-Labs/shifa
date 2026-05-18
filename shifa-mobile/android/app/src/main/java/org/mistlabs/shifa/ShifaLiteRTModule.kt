@@ -304,6 +304,6 @@ class ShifaLiteRTModule(private val reactContext: ReactApplicationContext) :
   companion object {
     const val NAME = "ShifaLiteRT"
     private const val MAX_RESPONSE_TOKENS = 512
-    private const val MIN_RECOMMENDED_RAM_BYTES = 5_905_580_032L
+    private const val MIN_RECOMMENDED_RAM_BYTES = 3_758_096_384L
   }
 }
